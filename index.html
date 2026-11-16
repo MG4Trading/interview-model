@@ -1470,6 +1470,13 @@ function tailorPrompt(a){
   L.push(`Ask me multiple choice questions at decision points.`);
   return L.join("\n");
 }
+function refsBlock(a){
+  const r=a.refs||[]; if(!r.length) return "";
+  const col={P:"#1f7a4d",R:"#7a4d1f",L:"#2b4c9b",O:"#666"}, lab={P:"Peer",R:"Recruiter",L:"Leader",O:"Contact"};
+  return `<div class="card" style="gap:8px"><div class="k">Who you know here &middot; ${a.refCount||r.length} connection${(a.refCount||r.length)>1?"s":""}</div>
+    ${r.map(x=>`<a href="${esc(x.url)}" target="_blank" rel="noopener" style="display:flex;gap:10px;align-items:center;text-decoration:none;color:inherit"><span style="min-width:72px;text-align:center;font-size:12px;font-weight:800;color:#fff;background:${col[x.type]||"#666"};border-radius:999px;padding:2px 8px">${lab[x.type]||"Contact"}</span><span class="small"><b>${esc(x.name)}</b><br>${esc(x.title)}</span></a>`).join("")}
+    <span class="small muted">Tap a name to open their LinkedIn profile. Ask a peer or leader for a referral; ask a recruiter who owns the role.</span></div>`;
+}
 function tailorChip(a){
   const t=a.tailor||{};
   if(t.status==="ready") return `<span class="verdict v-show">Resume ready${t.date?" "+fmtDate(t.date):""}</span>`;
@@ -1545,7 +1552,7 @@ function renderPipeline(){
       <summary><div style="flex:1;display:flex;flex-direction:column;gap:4px">
         <div class="row between"><span class="qt">${esc(a.company)}</span>${statusChip(a.status)}</div>
         <span class="small">${esc(a.role||"")}</span>
-        <div class="row small muted">${a.lane?`<span class="chip">${esc(LANES[a.lane]||a.lane)}</span>`:""}${num(a.fit)?`<span>Fit ${num(a.fit)}%</span>`:""}${a.warm?`<span>Warm: ${esc(a.warm)}</span>`:""}${sig?`<span class="verdict v-hold">${sig} risk</span>`:""}${a.confirm?`<span class="verdict v-offer">confirm status</span>`:""}${triageBadge(a)}${tailorChip(a)}${a.source==="post"?`<span class="verdict v-show">&#128227; Hiring post</span>`:""}</div>
+        <div class="row small muted">${a.lane?`<span class="chip">${esc(LANES[a.lane]||a.lane)}</span>`:""}${num(a.fit)?`<span>Fit ${num(a.fit)}%</span>`:""}${a.warm?`<span>Warm: ${esc(a.warm)}</span>`:""}${sig?`<span class="verdict v-hold">${sig} risk</span>`:""}${a.confirm?`<span class="verdict v-offer">confirm status</span>`:""}${triageBadge(a)}${tailorChip(a)}${a.source==="post"?`<span class="verdict v-show">&#128227; Hiring post</span>`:""}${a.refCount?`<span class="verdict v-show">&#129309; ${a.refCount} you know</span>`:""}${a.suggest==="ignore"&&!a.triage?`<span class="verdict v-hold">Suggest ignore</span>`:""}</div>
         ${a.next&&a.next.text?`<div class="small"><b>Next:</b> ${esc(a.next.text)}${a.next.date?" ("+fmtDate(a.next.date)+")":""}</div>`:""}
       </div></summary>
       <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
@@ -1558,6 +1565,7 @@ function renderPipeline(){
         ${(a.fitWhy||[]).length||(a.fitGaps||[]).length?`<div class="grid2">
           ${(a.fitWhy||[]).length?`<div class="card stripe show" style="gap:6px"><div class="k">Why it fits</div><ul class="clean small">${a.fitWhy.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}
           ${(a.fitGaps||[]).length?`<div class="card stripe hold" style="gap:6px"><div class="k">Gaps and flags</div><ul class="clean small">${a.fitGaps.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}</div>`:""}
+        ${refsBlock(a)}
         ${a.status!=="rejected"&&a.status!=="withdrawn"?tailorBlock(a):""}
         ${a.status==="shortlist"||a.triage==="ignored"?triageBlock(a):""}
         ${signalBlock(a)}
