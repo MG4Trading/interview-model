@@ -1545,13 +1545,13 @@ function renderPipeline(){
       <summary><div style="flex:1;display:flex;flex-direction:column;gap:4px">
         <div class="row between"><span class="qt">${esc(a.company)}</span>${statusChip(a.status)}</div>
         <span class="small">${esc(a.role||"")}</span>
-        <div class="row small muted">${a.lane?`<span class="chip">${esc(LANES[a.lane]||a.lane)}</span>`:""}${num(a.fit)?`<span>Fit ${num(a.fit)}%</span>`:""}${a.warm?`<span>Warm: ${esc(a.warm)}</span>`:""}${sig?`<span class="verdict v-hold">${sig} risk</span>`:""}${a.confirm?`<span class="verdict v-offer">confirm status</span>`:""}${triageBadge(a)}${tailorChip(a)}</div>
+        <div class="row small muted">${a.lane?`<span class="chip">${esc(LANES[a.lane]||a.lane)}</span>`:""}${num(a.fit)?`<span>Fit ${num(a.fit)}%</span>`:""}${a.warm?`<span>Warm: ${esc(a.warm)}</span>`:""}${sig?`<span class="verdict v-hold">${sig} risk</span>`:""}${a.confirm?`<span class="verdict v-offer">confirm status</span>`:""}${triageBadge(a)}${tailorChip(a)}${a.source==="post"?`<span class="verdict v-show">&#128227; Hiring post</span>`:""}</div>
         ${a.next&&a.next.text?`<div class="small"><b>Next:</b> ${esc(a.next.text)}${a.next.date?" ("+fmtDate(a.next.date)+")":""}</div>`:""}
       </div></summary>
       <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
         <div class="row">
           <button class="btn sm primary" data-prep="${a.id}">Prepare next step</button>
-          ${a.link?`<a class="btn sm" href="${esc(a.link)}" target="_blank" rel="noopener" style="text-decoration:none">Open job ad</a>`:""}
+          ${a.link?`<a class="btn sm" href="${esc(a.link)}" target="_blank" rel="noopener" style="text-decoration:none">Open job ad</a>`:""}${a.postUrl?`<a class="btn sm" href="${esc(a.postUrl)}" target="_blank" rel="noopener" style="text-decoration:none">Open LinkedIn post</a>`:""}
           <select class="btn sm" data-status="${a.id}" aria-label="Change status">${Object.entries(STATUS).map(([k,l])=>`<option value="${k}" ${k===a.status?"selected":""}>${l}</option>`).join("")}</select>
         </div>
         ${a.purpose?`<p class="small"><b>Job purpose:</b> ${esc(a.purpose)}</p>`:""}
