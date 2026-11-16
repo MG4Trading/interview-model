@@ -1,0 +1,1717 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Interview">
+<meta name="robots" content="noindex">
+<title>Interview Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a pocket field manual. One task per tab, bottom tab bar on iPhone, cards scanned top to bottom, decisions shown as coloured verdict pills. */
+:root{
+  --ink:#16202e; --paper:#f4f5f2; --card:#ffffff; --line:#d9ddd6; --muted:#5b6573;
+  --accent:#1f4fd1; --accent-ink:#ffffff; --accent-soft:#e3eafc;
+  --show:#0f7a4b; --show-soft:#dcf2e7; --offer:#a15c00; --offer-soft:#fbecd5; --hold:#7a2a2a; --hold-soft:#f6e1df;
+  --hr:#6a3fb5; --hm:#1f4fd1; --panel:#0b7a8a; --case:#b2461b;
+  --display:"Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body:"Source Sans 3", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --r:12px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#e8ebf0; --paper:#0f141b; --card:#18202b; --line:#2a3442; --muted:#9aa5b4;
+    --accent:#7d9cff; --accent-ink:#0f141b; --accent-soft:#1d2a4a;
+    --show:#5fd39b; --show-soft:#143325; --offer:#f2b45a; --offer-soft:#3a2a12; --hold:#f08a84; --hold-soft:#3a1a19;
+    --hr:#b394ff; --hm:#7d9cff; --panel:#4fc8d8; --case:#ff9466;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#e8ebf0; --paper:#0f141b; --card:#18202b; --line:#2a3442; --muted:#9aa5b4;
+  --accent:#7d9cff; --accent-ink:#0f141b; --accent-soft:#1d2a4a;
+  --show:#5fd39b; --show-soft:#143325; --offer:#f2b45a; --offer-soft:#3a2a12; --hold:#f08a84; --hold-soft:#3a1a19;
+  --hr:#b394ff; --hm:#7d9cff; --panel:#4fc8d8; --case:#ff9466;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.45;-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:26px;font-weight:800;letter-spacing:-.01em}
+h2{font-size:20px;font-weight:700}
+h3{font-size:16px;font-weight:700}
+p{margin:0}
+a{color:var(--accent)}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.top{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:1px solid var(--line);padding:calc(env(safe-area-inset-top) + 10px) 16px 10px}
+.top-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;max-width:980px;margin:0 auto}
+.brand{display:flex;flex-direction:column}
+.brand small{color:var(--muted);font-size:13px}
+.tabs-top{display:none;gap:4px;max-width:980px;margin:10px auto 0}
+main{max-width:980px;margin:0 auto;padding:16px 16px calc(env(safe-area-inset-bottom) + 96px)}
+.view{display:none;flex-direction:column;gap:14px}
+.view.on{display:flex}
+.lede{color:var(--muted);max-width:65ch}
+
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);padding:6px 4px calc(env(safe-area-inset-bottom) + 6px)}
+.tab{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:8px}
+.tab svg{width:22px;height:22px}
+.tab[aria-current="page"]{color:var(--accent)}
+@media (min-width:760px){
+  .tabbar{display:none}
+  .tabs-top{display:flex}
+  .tabs-top .tab{flex-direction:row;font-size:14px;padding:8px 12px;gap:6px}
+  .tabs-top .tab svg{width:18px;height:18px}
+  .tabs-top .tab[aria-current="page"]{background:var(--accent-soft)}
+  main{padding-bottom:48px}
+}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px}
+.card.flat{background:transparent}
+.grid2{display:grid;grid-template-columns:1fr;gap:14px}
+@media (min-width:760px){.grid2{grid-template-columns:1fr 1fr}}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.between{justify-content:space-between}
+.k{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+ul.clean{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+ol.clean{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;min-height:44px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.sm{min-height:36px;padding:6px 10px;font-size:14px}
+textarea,input[type=text],input[type=date],select{width:100%;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:10px 12px;font-size:16px}
+textarea{min-height:150px;resize:vertical}
+label{font-weight:600;font-size:14px;display:flex;flex-direction:column;gap:6px}
+
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;border:1px solid var(--line);background:var(--card);white-space:nowrap}
+.chip.st-hr{color:var(--hr);border-color:currentColor}
+.chip.st-hm{color:var(--hm);border-color:currentColor}
+.chip.st-panel{color:var(--panel);border-color:currentColor}
+.chip.st-case{color:var(--case);border-color:currentColor}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-weight:600;font-size:14px;cursor:pointer;min-height:36px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+
+.verdict{display:inline-block;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.v-show{background:var(--show-soft);color:var(--show)}
+.v-offer{background:var(--offer-soft);color:var(--offer)}
+.v-hold{background:var(--hold-soft);color:var(--hold)}
+.stripe{border-left:4px solid var(--line);padding-left:12px}
+.stripe.show{border-color:var(--show)} .stripe.offer{border-color:var(--offer)} .stripe.hold{border-color:var(--hold)}
+
+details.q{background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+details.q>summary{list-style:none;cursor:pointer;padding:14px 16px;display:flex;gap:10px;align-items:flex-start}
+details.q>summary::-webkit-details-marker{display:none}
+details.q>summary .qt{font-weight:700;flex:1}
+details.q[open]>summary{border-bottom:1px solid var(--line)}
+.qbody{padding:14px 16px;display:grid;gap:12px}
+@media (min-width:760px){.qbody{grid-template-columns:1fr 1fr}}
+.qbody .full{grid-column:1/-1}
+.why{background:var(--accent-soft);border-radius:10px;padding:10px 12px}
+.trap{background:var(--hold-soft);border-radius:10px;padding:10px 12px}
+.story-pill{display:inline-flex;border:1px dashed var(--accent);color:var(--accent);border-radius:8px;padding:2px 8px;font-size:13px;font-weight:700;cursor:pointer;background:none}
+
+.funnel{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.funnel div{border-radius:10px;padding:10px 8px;text-align:center;font-size:13px;font-weight:700;color:#fff}
+.f-hr{background:var(--hr)} .f-hm{background:var(--hm)} .f-panel{background:var(--panel)} .f-case{background:var(--case)}
+:root[data-theme="dark"] .funnel div{color:#0f141b}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .funnel div{color:#0f141b}}
+
+.stat{display:flex;flex-direction:column;gap:2px;min-width:110px}
+.stat b{font-family:var(--display);font-size:26px;font-variant-numeric:tabular-nums}
+.timer{font-family:var(--display);font-size:34px;font-variant-numeric:tabular-nums}
+.meter{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent)}
+.note{font-size:14px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px}
+.status{font-size:14px;font-weight:600;color:var(--muted)}
+.top .status{white-space:nowrap}
+.sources a{word-break:break-word}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+.tablewrap{overflow-x:auto}
+
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:14px;font-weight:700}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend span::before{content:"";width:14px;height:14px;border-radius:4px;background:var(--c)}
+.wall{display:grid;grid-template-columns:1fr;gap:12px}
+@media (min-width:760px){.wall{grid-template-columns:repeat(4,1fr)}}
+.lane{display:flex;flex-direction:column;gap:6px;background:color-mix(in srgb,var(--c) 8%,var(--card));border:1px solid color-mix(in srgb,var(--c) 35%,var(--line));border-radius:var(--r);padding:10px}
+.lane-h{display:flex;justify-content:space-between;align-items:center;background:var(--c);color:#fff;border-radius:8px;padding:6px 10px;font-weight:800;font-family:var(--display)}
+:root[data-theme="dark"] .lane-h{color:#0f141b}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .lane-h{color:#0f141b}}
+.qchip{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;text-align:left;border:1px solid var(--line);border-left:5px solid var(--c);background:var(--card);border-radius:10px;padding:8px 10px;cursor:pointer;font-size:14px;line-height:1.3}
+.qchip.on{outline:3px solid var(--c);background:color-mix(in srgb,var(--c) 14%,var(--card))}
+.qn{grid-row:span 2;font-family:var(--display);font-weight:800;color:var(--c);font-size:15px;min-width:30px}
+.qt2{font-weight:600}
+.qi{display:flex;gap:4px;color:var(--muted)}
+.mini{display:inline-flex}
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.flow .step{background:color-mix(in srgb,var(--c) 15%,var(--card));border-top:4px solid var(--c);border-radius:6px;padding:6px;font-size:13px;font-weight:700;text-align:center;display:flex;flex-direction:column}
+.flow .step b{font-family:var(--display);font-size:18px;color:var(--c)}
+.pbar{display:grid;grid-template-columns:22px minmax(110px,1.2fr) 2fr 44px;align-items:center;gap:8px;border:0;background:none;padding:4px 0;cursor:pointer;text-align:left;font-size:14px}
+.pbar .pic{color:var(--accent)} .pbar .plab{font-weight:600}
+.ptrack{height:14px;background:var(--line);border-radius:99px;overflow:hidden}
+.ptrack i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--panel));border-radius:99px}
+.pval{font-family:var(--display);font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.dim{opacity:.35}
+.scard{gap:12px}
+.shead{display:flex;gap:12px;align-items:center}
+.sicon{width:52px;height:52px;flex:none;border-radius:14px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
+.sbig{display:flex;flex-direction:column;align-items:flex-end;text-align:right;max-width:40%}
+.sbig b{font-family:var(--display);font-size:26px;font-weight:800;color:var(--show);line-height:1}
+.sbig span{font-size:12px;color:var(--muted)}
+.hook{font-family:var(--display);font-size:18px;font-weight:700;line-height:1.3}
+.star{display:grid;grid-template-columns:1fr;gap:6px}
+@media (min-width:1000px){.star{grid-template-columns:1fr 1fr}}
+.sstep{display:grid;grid-template-columns:54px 1fr;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.sk{display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:22px;color:#fff}
+.sk small{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.s-S .sk{background:#6b7b8f} .s-T .sk{background:var(--hm)} .s-A .sk{background:var(--panel)} .s-R .sk{background:var(--show)}
+:root[data-theme="dark"] .sk{color:#0f141b}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .sk{color:#0f141b}}
+.st{padding:8px 10px;font-size:14px}
+.qdot{border:0;color:#fff;font-weight:800;font-size:12px;border-radius:999px;padding:3px 8px;cursor:pointer}
+:root[data-theme="dark"] .qdot{color:#0f141b}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .qdot{color:#0f141b}}
+.hidden{display:none !important}
+@media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-row">
+    <div class="brand">
+      <h1>Interview Model</h1>
+      <small>Job purpose, questions, answers, showcase timing. Built on your verified record.</small>
+    </div>
+    <span class="status" id="aiStatus">Connecting</span>
+  </div>
+  <nav class="tabs-top" id="tabsTop" aria-label="Sections"></nav>
+</header>
+
+<main>
+<!-- DECODE -->
+<section class="view" id="v-decode" aria-labelledby="h-decode">
+  <h2 id="h-decode">1. Decode the job</h2>
+  <p class="lede">Paste any job description. The model works out why the role exists, which problems you are being hired to fix, how success will be measured, what each interviewer will probe, and what to show.</p>
+  <div class="funnel" aria-label="Interview stages in order">
+    <div class="f-hr">HR screen</div><div class="f-hm">Hiring manager</div><div class="f-panel">Panel</div><div class="f-case">Case study</div>
+  </div>
+  <div class="card">
+    <label for="jdCompany">Company and role
+      <input type="text" id="jdCompany" value="Example: Manager, Sales Operations (SaaS, Toronto)">
+    </label>
+    <label for="jdLink">Job link (saved with the role; Claude fetches it in chat or in the morning feed)
+      <input type="text" id="jdLink" inputmode="url" placeholder="https://">
+    </label>
+    <label for="jdText">Job description (paste the text: job sites block this page from reading links)
+      <textarea id="jdText"></textarea>
+    </label>
+    <div class="row">
+      <button class="btn primary" id="btnDecode">Decode with Claude</button>
+      <button class="btn" id="btnDecodeQuick">Quick decode (offline)</button>
+      <button class="btn ghost" id="btnFetchAsk">Copy fetch request for chat</button>
+      <span class="status" id="decodeStatus"></span>
+    </div>
+  </div>
+  <div id="decodeOut"></div>
+</section>
+
+<!-- QUESTIONS -->
+<section class="view" id="v-questions" aria-labelledby="h-q">
+  <h2 id="h-q">2. Question library</h2>
+  <p class="lede">Every question has a hidden purpose. Read the intent first, then the answer structure, then the trap. Tap a story to see the proof that fits.</p>
+  <div class="seg" id="qMode" role="group" aria-label="Browse by">
+    <button aria-pressed="true" data-mode="stage">By stage</button>
+    <button aria-pressed="false" data-mode="company">Company packs</button>
+  </div>
+  <div id="qStageWrap" class="view on" style="gap:12px">
+    <div class="seg" id="qFilter" role="group" aria-label="Stage filter"></div>
+    <input type="text" id="qSearch" placeholder="Search questions, for example forecast, conflict, salary" aria-label="Search questions">
+    <div id="qList" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+  <div id="qCompanyWrap" class="hidden" style="flex-direction:column;gap:12px;display:flex"></div>
+</section>
+
+<!-- STORIES -->
+<section class="view" id="v-stories" aria-labelledby="h-s">
+  <h2 id="h-s">3. Questions and stories</h2>
+  <p class="lede">See it, then say it. Every question is coloured by stage. Every story has an icon, a big number and a four step STAR flow. Tap a question to light up its stories.</p>
+  <div class="legend"><span style="--c:var(--hr)">HR screen</span><span style="--c:var(--hm)">Hiring manager</span><span style="--c:var(--panel)">Panel</span><span style="--c:var(--case)">Case study</span></div>
+  <h3>A. Every question you can expect</h3>
+  <div id="sWall" class="wall"></div>
+  <div id="sPick"></div>
+  <h3>B. Which story answers which question</h3>
+  <div class="card" id="sMap"></div>
+  <h3>C. Your proof in numbers</h3>
+  <div class="card" id="sProof" style="gap:6px"></div>
+  <h3>D. Your standout stories</h3>
+  <div id="sList" class="grid2"></div>
+</section>
+
+<!-- SHOWCASE -->
+<section class="view" id="v-showcase" aria-labelledby="h-sh">
+  <h2 id="h-sh">4. Showcase engine</h2>
+  <p class="lede">Whether to show something, which piece, and the exact moment. Set the situation and the verdicts update.</p>
+  <div class="card">
+    <div class="k">Interview stage</div>
+    <div class="seg" id="shStage" role="group" aria-label="Stage"></div>
+    <div class="k">Time slot</div>
+    <div class="seg" id="shTime" role="group" aria-label="Time slot"></div>
+    <div class="k">What the JD and interviewer signal</div>
+    <div class="seg" id="shSignals" role="group" aria-label="Signals"></div>
+  </div>
+  <div id="shOut" style="display:flex;flex-direction:column;gap:10px"></div>
+  <div class="card flat">
+    <h3>Rules behind the verdicts</h3>
+    <ul class="clean small">
+      <li>A 30/60/90 plan works as a conversation tool: bring it out when the hiring manager asks the first question it answers, usually about priorities or the first months.</li>
+      <li>A generic plan hurts more than no plan. If it does not reflect this manager's priorities, hold it.</li>
+      <li>One page, three columns (30, 60, 90), four rows: focus, priorities, tasks, success measures.</li>
+      <li>Recruiter screens are for fit and logistics. Mention that the material exists; never present it there.</li>
+      <li>Panels score competencies question by question. Answer first; use one-page case write-ups as leave-behinds.</li>
+      <li>Show a digital tool for 60 seconds as method proof, never as the main story, and only with no personal data on screen.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- REHEARSE -->
+<section class="view" id="v-rehearse" aria-labelledby="h-r">
+  <h2 id="h-r">5. Rehearse out loud</h2>
+  <p class="lede">Spoken fluency is built by saying the answer, not reading it. Pick a question, speak or type your answer against the clock, get a score, then shadow the tightened version.</p>
+  <div class="card">
+    <div class="row between">
+      <div class="seg" id="rStage" role="group" aria-label="Stage for practice"></div>
+      <button class="btn sm" id="rNext">Next question</button>
+    </div>
+    <h3 id="rQ"></h3>
+    <p class="why small" id="rWhy"></p>
+    <div class="row between">
+      <span class="timer" id="rTimer" aria-live="polite">0:00</span>
+      <div class="row">
+        <button class="btn" id="rStart">Start timer</button>
+        <button class="btn hidden" id="rMic">Speak answer</button>
+        <button class="btn" id="rHear">Hear question</button>
+      </div>
+    </div>
+    <label for="rAns">Your answer (on iPhone, tap the keyboard microphone to dictate)
+      <textarea id="rAns" placeholder="Answer as you would say it."></textarea>
+    </label>
+    <div class="row">
+      <button class="btn primary" id="rCoach">Coach my answer</button>
+      <button class="btn" id="rCheck">Quick check</button>
+      <span class="status" id="rStatus"></span>
+    </div>
+  </div>
+  <div id="rOut" style="display:flex;flex-direction:column;gap:10px"></div>
+</section>
+
+<!-- PIPELINE -->
+<section class="view" id="v-pipeline" aria-labelledby="h-p">
+  <div class="row between"><h2 id="h-p">Pipeline</h2><span class="status" id="pMode"></span></div>
+  <details class="q" id="ghWrap">
+    <summary><span class="qt">Sync with GitHub</span><span class="chip" id="ghChip">Set up</span></summary>
+    <div class="qbody" style="display:flex;flex-direction:column;gap:10px">
+      <p class="small">Your data lives in the private repo <b>MG4Trading/interview-model-data</b>. Paste a fine-grained token with Contents read and write on that repo only. It stays in this browser and is never sent anywhere except GitHub.</p>
+      <label for="ghToken">GitHub token<input type="password" id="ghToken" autocomplete="off" placeholder="github_pat_..."></label>
+      <div class="row"><button class="btn primary sm" id="ghSave" type="button">Connect</button><button class="btn sm" id="ghReload" type="button">Reload data</button><button class="btn sm ghost" id="ghForget" type="button">Disconnect</button></div>
+      <span class="status" id="ghMsg"></span>
+    </div>
+  </details>
+  <div id="pSummary" class="card"></div>
+  <div id="pProgress" class="card"></div>
+  <details class="q" id="pAddWrap">
+    <summary><span class="qt">Add an application</span><span class="chip">Add</span></summary>
+    <form id="pAdd" class="qbody">
+      <label for="paCompany">Company<input type="text" id="paCompany" required></label>
+      <label for="paRole">Role<input type="text" id="paRole" required></label>
+      <label for="paLink">Job link<input type="text" id="paLink" inputmode="url" placeholder="https://"></label>
+      <label for="paLane">Lane<select id="paLane"></select></label>
+      <label for="paStatus">Status<select id="paStatus"></select></label>
+      <label for="paDate">Applied on<input type="date" id="paDate"></label>
+      <label for="paMin">Posted salary, low<input type="text" id="paMin" inputmode="numeric" placeholder="115000"></label>
+      <label for="paMax">Posted salary, high<input type="text" id="paMax" inputmode="numeric" placeholder="140000"></label>
+      <label for="paWarm">Warm path (referral, hiring manager, recruiter)<input type="text" id="paWarm"></label>
+      <label for="paFit">Fit %<input type="text" id="paFit" inputmode="numeric" placeholder="85"></label>
+      <div class="row full"><button class="btn primary" type="submit">Save application</button><span class="status" id="paStatus2"></span></div>
+    </form>
+  </details>
+  <div class="seg" id="pFilter" role="group" aria-label="Pipeline filter"></div>
+  <div id="pList" style="display:flex;flex-direction:column;gap:10px"></div>
+  <p class="note">Updates arrive three ways: the weekday morning feed (email scan, company news, hiring signals, salary benchmarks), anything you tell Claude in your recruiting project, and what you add here. Ontario rule since January 1, 2026: employers with 25 or more staff must tell interviewed candidates the outcome within 45 days.</p>
+</section>
+
+</main>
+
+<nav class="tabbar" id="tabbar" aria-label="Sections"></nav>
+
+<script>
+/* ---------- DATA: verified stories (from the master record) ---------- */
+const STORIES = [
+ {id:"geo", title:"Forecast rebuilt on capacity data", where:"Vodafone, Sales Strategy and Planning", tags:["forecasting","quota","data","change"],
+  S:"Targets were set as last year plus a growth percentage, with no link to where network and channel capacity actually existed.",
+  T:"Own target and quota models across 450 retail outlets, 120+ indirect sales agents and supervisors, 105 partner offices and 650+ partner agents.",
+  A:"Replaced year over year targets with a geo intelligence forecast built on network and channel capacity data by city, then aligned quotas to it with the regional leads.",
+  R:"Gross add share up 3.5 points and number one share in 87% of cities.",
+  hook:"I stopped forecasting from last year and started forecasting from capacity."},
+ {id:"huntfarm", title:"Hunters and farmers split", where:"Vodafone, Sales Strategy and Planning", tags:["sales org","problem solving","pipeline"],
+  S:"A sales team had stalled: the same reps were chasing new logos and servicing the base, and doing neither well.",
+  T:"Restart pipeline growth without adding headcount.",
+  A:"Split the team into hunters focused on new acquisition and farmers focused on base growth, each with its own targets, coverage and reporting.",
+  R:"Pipeline up 24% and closed deals up 20%.",
+  hook:"Same people, different jobs, and the pipeline moved."},
+ {id:"dash", title:"Daily three tier KPI dashboards", where:"Vodafone, Sales Strategy and Planning", tags:["reporting","KPIs","RevOps","forecasting"],
+  S:"Reporting ran weekly, so the field was acting on numbers that were already stale.",
+  T:"Give executives, regions and field teams one version of the truth fast enough to act on.",
+  A:"Moved reporting from weekly to daily and built three tier KPI dashboards: executive, regional and field, each showing only the levers that level controls.",
+  R:"Team attainment averaged 99% for eight straight quarters and reporting accuracy rose 30%.",
+  hook:"Each level saw only the numbers it could move."},
+ {id:"partner", title:"Partner due diligence and exits", where:"Vodafone, Sales Strategy and Planning", tags:["tough decision","partners","stakeholders","cost"],
+  S:"Partners carried 75% of revenue, but performance and cost to serve were uneven.",
+  T:"Protect revenue while removing the weakest partners.",
+  A:"Ran due diligence on the partners carrying that 75%, set clear exit criteria, exited the weakest and redistributed their coverage.",
+  R:"About C$20M saved a year, channel efficiency up 23% and partner productivity up 15%.",
+  hook:"I cut partners that carried revenue, and revenue held."},
+ {id:"comp", title:"Commission plan redesign", where:"Vodafone, Sales Strategy and Planning", tags:["incentives","stakeholders","cost"],
+  S:"Tier 1 and Tier 2 commission plans and sales contests paid for activity that did not move the number.",
+  T:"Redesign the plans without hurting attainment or morale.",
+  A:"Rebuilt the Tier 1 and Tier 2 commission plans and contests around the outcomes that mattered and tested them with sales leaders before launch.",
+  R:"Sales up 10%, about C$400K saved a year, and attainment held at 105 to 107%.",
+  hook:"Paid less, sold more, and attainment held above 105%."},
+ {id:"crm", title:"Field CRM rollout to 120+ staff", where:"Vodafone, Sales Strategy and Planning", tags:["systems","adoption","influence","change"],
+  S:"Field activity lived in notebooks and spreadsheets, so pipeline data was thin and unreliable.",
+  T:"Get a mobile CRM adopted by field staff who did not report to me.",
+  A:"Rolled out mobile field CRM to 120+ staff, trained by region, and tied the dashboards people already used to CRM data so entering it paid off for them.",
+  R:"Adoption reached 90%, data accuracy rose 45% and sales productivity 25%.",
+  hook:"Adoption came from making the data useful to the rep first."},
+ {id:"cash", title:"Vodafone Cash go to market", where:"Vodafone", tags:["launch","GTM","innovation","cross functional"],
+  S:"Vodafone was launching MENA's first mobile money platform with no proven playbook.",
+  T:"Lead the go to market across sales channels.",
+  A:"Led the go to market plan for Vodafone Cash across direct and partner channels, working with product, marketing and operations.",
+  R:"10M+ transactions and 40%+ adoption in target segments in year one.",
+  hook:"A first of its kind launch with no playbook to copy."},
+ {id:"pos", title:"Partner network from 2,000 to 15,000+", where:"Vodafone", tags:["channel","expansion","scale","partners"],
+  S:"Distribution stopped short of underserved cities.",
+  T:"Extend reach without building stores.",
+  A:"Grew the partner network from 2,000 to 15,000+ points of sale into underserved cities.",
+  R:"Distribution coverage up 25% and market share up 5%.",
+  hook:"Coverage up a quarter by building the partner layer, not stores."},
+ {id:"axa", title:"AXA direct and tele sales launch", where:"Mortimer Harvey, AXA Insurance", tags:["insurance","consulting","launch","CX"],
+  S:"AXA Insurance needed new direct revenue channels.",
+  T:"Launch direct and tele sales channels and a customer experience blueprint.",
+  A:"Launched the channels and wrote the CX blueprint: journeys, touchpoints and service KPIs.",
+  R:"Revenue up 15% year over year, brand awareness up 30% in three months, churn down 12%.",
+  hook:"Insurance channels built from zero, with churn falling at the same time."},
+ {id:"ai", title:"AI assisted analysis and HubSpot pipeline", where:"MG Business Solutions", tags:["AI","automation","systems","RevOps"],
+  S:"Client research and reporting took days per cycle.",
+  T:"Speed up delivery without losing quality.",
+  A:"Built AI assisted research, competitive intelligence and reporting workflows into client delivery, and set up a HubSpot pipeline with 8 stages, entry and exit criteria, and source tagging on every opportunity.",
+  R:"Analysis cycles cut by about 70%, from days to hours.",
+  hook:"Days to hours, with defined stage criteria behind every number."},
+ {id:"rust", title:"Rusticano pricing and growth", where:"MG Business Solutions", tags:["pricing","consulting","forecasting","partners"],
+  S:"A food brand had flat growth and weak retail presence.",
+  T:"Rebuild pricing, go to market and demand forecasting.",
+  A:"Rebuilt all three and signed distributor partnerships that won shelf space in major retail chains.",
+  R:"Revenue up 25% in 18 months and supply chain efficiency up 15%.",
+  hook:"Pricing and forecasting fixed together, growth followed."},
+ {id:"siwa", title:"SIWA Salt Canadian market entry", where:"MG Business Solutions", tags:["market entry","sizing","case","Canada"],
+  S:"A producer wanted to know if Canada was worth entering.",
+  T:"Direct the feasibility study.",
+  A:"Ran the competitor scan, price benchmarks, wholesale versus retail models and distribution channel options.",
+  R:"Found C$8M in potential annual sales.",
+  hook:"A go or no go answer for the Canadian market, sized in dollars."},
+ {id:"total", title:"TotalEnergies three country CX study", where:"Mortimer Harvey, TotalEnergies", tags:["research","market sensing","CX","data"],
+  S:"Retail decisions needed evidence from customers in several markets.",
+  T:"Run a customer experience study across Egypt, Germany and Jordan.",
+  A:"Designed and ran the study with 1,000+ customers and turned findings into retail recommendations.",
+  R:"Satisfaction reached 85% and the findings shaped C$50M+ in retail decisions.",
+  hook:"Customer evidence that steered C$50M+ of decisions."},
+ {id:"camp", title:"Ontario municipal campaign RevOps engine", where:"Pro bono, Ontario, 2026", tags:["Canada","leadership","RevOps","data"],
+  S:"A municipal campaign had volunteers and a contact list but no system.",
+  T:"Build the operating engine from scratch, in Ontario.",
+  A:"Designed the funnel, segmented territories and built live KPI dashboards across 20,000 contacts, then led 60+ volunteers on it.",
+  R:"45% positive response rate in the first phase.",
+  hook:"Recent Canadian proof: a revenue style engine built from zero."},
+ {id:"uth", title:"U-Thentic e-commerce venture", where:"MG Business Solutions project", tags:["e-commerce","digital","entrepreneur"],
+  S:"Handmade Egyptian products had no route to North American buyers.",
+  T:"Take the range online across marketplaces.",
+  A:"Took 50+ SKUs to Instagram, Etsy and Amazon, selling to Canada, the U.S. and Belgium.",
+  R:"3x return on the initial investment.",
+  hook:"Hands on digital commerce, three marketplaces, three countries."},
+ {id:"fail", title:"Setback story (build this one)", where:"To fill in", tags:["failure","learning"], gap:true,
+  S:"Pick a real target you missed or a call you got wrong. Recent and work related is best.",
+  T:"What you owned.",
+  A:"What you did once you saw it going wrong, and what you changed in your method.",
+  R:"The recovery, the lesson, and where you applied it later. Interviewers score ownership and learning, not the miss.",
+  hook:"Every panel asks for one. This is the only story not yet locked."}
+];
+
+/* ---------- DATA: question library ---------- */
+const STAGES = {hr:"HR screen", hm:"Hiring manager", panel:"Panel", case:"Case study"};
+const Q = [
+ // HR screen
+ {id:"h1", st:"hr", q:"Tell me about yourself.",
+  why:"The recruiter needs a short pitch to repeat to the hiring manager. They are testing clarity, relevance and whether you can edit yourself.",
+  look:"60 to 90 seconds. A clear identity line, two proof points that match this JD, and a reason this role is the next logical step.",
+  how:"Present, past, future. Now: what you do. Proof: two results tied to their problems. Next: why this role.",
+  trap:"Starting from your first job, reciting every role, or talking past two minutes. Tenure talk invites age assumptions.",
+  stories:["geo","dash","camp"], tags:["pitch"]},
+ {id:"h2", st:"hr", q:"Why this role, and why us?",
+  why:"Checks motivation, research and flight risk. A generic answer reads as someone applying everywhere.",
+  look:"One specific company signal (recent news, product move, market), the problem the role solves, and your fit to that problem.",
+  how:"Signal, problem, fit. 'I saw X. That usually means Y needs to be solved. That is the work I have done.'",
+  trap:"Growth opportunity, culture, or salary as the main reason.",
+  stories:["geo"], tags:["motivation"]},
+ {id:"h3", st:"hr", q:"What are your salary expectations?",
+  why:"Budget fit. Ontario postings from employers with 25+ staff must show the pay range, with a spread of no more than $50,000, so the band is already on the table.",
+  look:"An anchor in the upper portion of the posted band, tied to scope, said without hedging.",
+  how:"'Based on the posted range and the scope, quota and forecast ownership across multiple channels, I am targeting the upper portion of that band, around X, and I am open to looking at total compensation.'",
+  trap:"Naming a number below the band, apologizing, or using words like 'flexible' and 'whatever is fair'.",
+  stories:[], tags:["comp","Canada"]},
+ {id:"h4", st:"hr", q:"Why are you looking now?",
+  why:"Screens for hidden problems: conflict, performance, instability.",
+  look:"Forward looking and brief. Moving toward something, not away.",
+  how:"'My advisory work has me building revenue engines for clients. I want to own one inside a single team and see the results compound.'",
+  trap:"Criticising past employers or over explaining.",
+  stories:["ai"], tags:["motivation"]},
+ {id:"h5", st:"hr", q:"Your background looks senior for this level. Why this role?",
+  why:"Fear of boredom, cost and flight risk, and whether you will accept direction.",
+  look:"Proof you want hands on ownership of the model itself, plus evidence you are still learning.",
+  how:"'I want to be in the model, not managing layers above it. What I bring is speed: I have built quota, forecast and dashboard systems at scale, so I ramp fast.' Mention current Trailhead work.",
+  trap:"Leading with headcount managed, director language, or total years.",
+  stories:["dash","crm"], tags:["overqualified"]},
+ {id:"h6", st:"hr", q:"Most of your experience is outside Canada. How does it translate?",
+  why:"Risk check on market knowledge and communication. Since January 1, 2026, Ontario postings cannot require Canadian experience, but the question still comes up.",
+  look:"Canadian proof first, then international work framed as market entry expertise.",
+  how:"Canadian first: Rotman Tech Sales Certificate, Canadian clients at MG, the 2026 Ontario campaign engine, TELUS Digital project. Then: 'Entering markets is exactly what I have done, including into Canada.'",
+  trap:"Apologising for it or treating it as a gap.",
+  stories:["camp","siwa"], tags:["Canada"]},
+ {id:"h7", st:"hr", q:"What do you know about us?",
+  why:"Tests preparation and genuine interest.",
+  look:"Business model, one recent move, and how the role connects to it.",
+  how:"Model in one sentence, one recent signal, one link to the role. Use the company brief from your project.",
+  trap:"Reading the About page back to them.",
+  stories:[], tags:["research"]},
+ {id:"h8", st:"hr", q:"When could you start, and are you interviewing elsewhere?",
+  why:"Timeline and competitive pressure.",
+  look:"Two weeks after an offer. Honest that you are in other processes, and that this one is a priority.",
+  how:"'I can start two weeks after an offer. I am in a few active processes, and this is one I am prioritizing.'",
+  trap:"Inventing offers, or saying you have nothing else going on.",
+  stories:[], tags:["logistics"]},
+ // Hiring manager
+ {id:"m1", st:"hm", q:"What would you do in your first 90 days?",
+  why:"Can you diagnose before acting, and do you understand their priorities? This is the safest hire test.",
+  look:"Learn, then fix one visible problem, then scale. Specific to their stack, team and number.",
+  how:"30: listen, audit data and process, meet stakeholders. 60: one quick win tied to their biggest pain. 90: a roadmap with metrics. Offer the one page plan here.",
+  trap:"Onboarding filler like 'meet the team' and 'learn the tools' with nothing about their problem.",
+  stories:["dash","crm"], show:"plan", tags:["plan"]},
+ {id:"m2", st:"hm", q:"How would you improve our forecast accuracy?",
+  why:"The core problem for most RevOps and sales ops roles. They want your diagnostic method, not a tool name.",
+  look:"Diagnose first: stage definitions, probability calibration, pipeline hygiene and stale deals, rep update cadence, and whether the method fits deal complexity.",
+  how:"Ask one clarifying question, then diagnose, pilot, measure. Close with your capacity based forecast result.",
+  trap:"Jumping to buy a forecasting tool.",
+  stories:["geo","dash"], show:"dash", tags:["forecasting"]},
+ {id:"m3", st:"hm", q:"Tell me about a time you built or rebuilt a sales operating model.",
+  why:"Evidence you have done the job, at a scale near theirs.",
+  look:"Scope, what was broken, what you designed, measured result.",
+  how:"STAR, with scope stated in channels and agents, not people managed.",
+  trap:"Describing the team's work as 'we' with no clear personal action.",
+  stories:["dash","huntfarm","geo"], tags:["operating model"]},
+ {id:"m4", st:"hm", q:"How do you handle a sales leader who pushes back on your data or process?",
+  why:"RevOps lives or dies on influence without authority. They are picturing their toughest VP.",
+  look:"Respect for the leader's goal, data shown in their terms, a test instead of a fight.",
+  how:"Understand what they are protecting, show the data against their number, propose a small pilot, let results win.",
+  trap:"'I escalate' or 'the data speaks for itself'.",
+  stories:["comp","crm"], tags:["stakeholders"]},
+ {id:"m5", st:"hm", q:"Which metrics would you put in front of our CRO or executive team?",
+  why:"Tests executive judgement: fewer, sharper numbers.",
+  look:"Pipeline coverage, forecast accuracy, win rate, net revenue retention, quota attainment distribution, and why each matters and at what cadence.",
+  how:"Five metrics, one reason each, one cadence. Then: 'Each level sees only the levers it controls.'",
+  trap:"A list of 20 KPIs.",
+  stories:["dash"], show:"dash", tags:["KPIs"]},
+ {id:"m6", st:"hm", q:"How do you set territories, quotas and capacity?",
+  why:"Core planning skill and fairness. Bad quotas drive attrition.",
+  look:"Top down target reconciled with bottom up capacity, account potential, ramp, and a check on attainment distribution.",
+  how:"Capacity model, potential by segment, quota to capacity ratio, review with leaders, monitor distribution.",
+  trap:"Last year plus a percentage.",
+  stories:["geo","pos"], tags:["quota"]},
+ {id:"m7", st:"hm", q:"Tell me about a compensation plan you changed.",
+  why:"Comp changes are risky. They want judgement and change management.",
+  look:"Why it was broken, how you tested it, how you handled pushback, the result on sales and cost.",
+  how:"STAR, stressing testing with leaders before launch.",
+  trap:"A plan that saved money but hurt attainment, told without the attainment number.",
+  stories:["comp"], tags:["incentives"]},
+ {id:"m8", st:"hm", q:"What tools and CRMs have you used?",
+  why:"Ramp time and hands on credibility.",
+  look:"Honest depth: Salesforce with Einstein Analytics for reports and dashboards, HubSpot pipeline design, Power BI, advanced Excel, AI tools for analysis.",
+  how:"Tool, what you built in it, result. Mention current Salesforce Trailhead modules.",
+  trap:"Claiming admin level depth or certifications you do not hold.",
+  stories:["ai","crm"], show:"tools", tags:["systems"]},
+ {id:"m9", st:"hm", q:"How do you prioritize competing requests from sales, marketing and finance?",
+  why:"RevOps gets buried in tickets. They want a system.",
+  look:"A visible intake, scoring by revenue impact and effort, and a cadence with stakeholders.",
+  how:"Intake, score, publish the queue, review weekly. Give one example of saying no well.",
+  trap:"'I just work harder.'",
+  stories:["dash"], tags:["prioritizing"]},
+ {id:"m10", st:"hm", q:"Why should we hire you over the other candidates?",
+  why:"An invitation to summarise fit in their words.",
+  look:"Three of their problems, three of your proofs, one line.",
+  how:"'You need A, B and C. I have done A (result), B (result), C (result).'",
+  trap:"Generic strengths like hard working and passionate.",
+  stories:["geo","partner","camp"], tags:["close"]},
+ {id:"m11", st:"hm", q:"What questions do you have for me?",
+  why:"The last scored question. It shows how you think and whether you are evaluating them too.",
+  look:"Questions about their problem, success measures and team, not perks.",
+  how:"Ask: What does success look like at six months? Where is the revenue engine leaking most today? What would make you say in a year this was a great hire?",
+  trap:"'No, you covered everything.'",
+  stories:[], tags:["close"]},
+ // Panel
+ {id:"p1", st:"panel", q:"Tell me about a time you failed or missed a target.",
+  why:"Self awareness and ownership. Panels score how you learn, not the miss.",
+  look:"A real miss, owned in the first sentence, the change you made, and later proof the lesson stuck.",
+  how:"Own it, explain the cause briefly, what you changed, where it paid off later.",
+  trap:"A fake weakness, blaming others, or no lesson.",
+  stories:["fail"], tags:["failure"]},
+ {id:"p2", st:"panel", q:"Describe a conflict with a stakeholder and how you resolved it.",
+  why:"How you behave under friction with people you cannot control.",
+  look:"Calm, curious, data based, ends in a better outcome for both sides.",
+  how:"STAR. Name the other side's goal fairly.",
+  trap:"Making the other person the villain.",
+  stories:["partner","comp"], tags:["conflict"]},
+ {id:"p3", st:"panel", q:"Tell me about influencing people who did not report to you.",
+  why:"Cross functional roles run on influence.",
+  look:"You made it worth their while, not mandatory.",
+  how:"STAR, with the adoption number as the result.",
+  trap:"Relying on a senior sponsor to force it.",
+  stories:["crm"], tags:["influence"]},
+ {id:"p4", st:"panel", q:"Tell me about a decision where data went against your instinct or the room's.",
+  why:"Analytical courage and judgement.",
+  look:"What the data said, how you tested it, how you brought people along.",
+  how:"STAR with the before and after method.",
+  trap:"Data worship with no business sense.",
+  stories:["geo","partner"], tags:["data"]},
+ {id:"p5", st:"panel", q:"Describe leading a cross functional initiative.",
+  why:"Coordination, clarity and follow through across teams.",
+  look:"Clear goal, roles, cadence, one hard moment, result.",
+  how:"STAR, naming the functions involved.",
+  trap:"A list of meetings.",
+  stories:["cash","axa"], tags:["cross functional"]},
+ {id:"p6", st:"panel", q:"Tell me about working with ambiguity or rapid change.",
+  why:"Fast growing companies change direction often.",
+  look:"You created structure where none existed.",
+  how:"STAR: what was unclear, the structure you built, the result.",
+  trap:"Saying you love change with no example.",
+  stories:["camp","cash"], tags:["ambiguity"]},
+ {id:"p7", st:"panel", q:"How have you used AI or automation in your work?",
+  why:"A 2026 standard question. They want practical, responsible use.",
+  look:"A real workflow, the time saved, and how you check the output.",
+  how:"Problem, workflow, result, safeguard.",
+  trap:"Vague enthusiasm, or implying AI does the thinking.",
+  stories:["ai"], show:"tools", tags:["AI"]},
+ {id:"p8", st:"panel", q:"Where do you see yourself in five years?",
+  why:"Retention and ambition alignment.",
+  look:"Deeper in this function and growing scope with this company.",
+  how:"'Owning a bigger part of the revenue engine here, with a track record of measurable wins in it.'",
+  trap:"A different job, or their manager's job.",
+  stories:[], tags:["motivation"]},
+ {id:"p9", st:"panel", q:"How do you keep your skills current?",
+  why:"Learning agility, especially for experienced candidates.",
+  look:"Specific, recent and applied.",
+  how:"Rotman Tech Sales Certificate, current Salesforce Trailhead modules, daily use of AI tools for analysis, and one thing you applied from them.",
+  trap:"Reading articles.",
+  stories:["ai"], tags:["learning"]},
+ // Case
+ {id:"c1", st:"case", q:"Our forecast misses by 15% every quarter. Diagnose it.",
+  why:"Tests structured thinking under ambiguity. The process is scored more than the answer.",
+  look:"Clarifying questions first, then a structured diagnosis: definitions, calibration, hygiene, cadence, method fit.",
+  how:"Ask two clarifying questions. Lay out a tree. Pick the likeliest branch. Propose a test and the metric that proves it.",
+  trap:"Jumping to a solution. Hiring data shows candidates who ask no clarifying questions close at about half the rate of those who ask two or more.",
+  stories:["geo","dash"], show:"dash", tags:["forecasting"]},
+ {id:"c2", st:"case", q:"Should we enter this new segment or market? Size it.",
+  why:"Commercial judgement and comfort with numbers.",
+  look:"Top down and bottom up sizing that reconcile, channel economics, a clear go or no go with risks.",
+  how:"Market, share you can win, channel, economics, recommendation, risks, next step.",
+  trap:"A huge market number with no path to revenue.",
+  stories:["siwa","axa"], show:"cases", tags:["market entry"]},
+ {id:"c3", st:"case", q:"Design territories and quotas for a team of 20 reps.",
+  why:"Hands on planning skill.",
+  look:"Capacity, potential, ramp, fairness checks, and how you would review it with leaders.",
+  how:"Inputs, model, fairness test, rollout, monitoring.",
+  trap:"Equal splits with no account potential.",
+  stories:["geo","pos"], show:"dash", tags:["quota"]},
+ {id:"c4", st:"case", q:"Win rate dropped in one segment. Find out why.",
+  why:"Funnel analytics and root cause method.",
+  look:"Funnel by stage, cohort, segment, rep and competitor; separate mix from performance.",
+  how:"Hypotheses, data cut, likely cause, fix, metric.",
+  trap:"Blaming reps before checking the data.",
+  stories:["huntfarm","dash"], show:"dash", tags:["analytics"]},
+ {id:"c5", st:"case", q:"Our partner or channel program is underperforming. What do you do?",
+  why:"Common for channel roles at companies like Geotab and Clio.",
+  look:"Segment partners by value and potential, fix incentives, prune and invest.",
+  how:"Segment, diagnose, incentives, enablement, prune, measure.",
+  trap:"Recruiting more partners as the only answer.",
+  stories:["partner","pos","comp"], show:"cases", tags:["partners"]},
+ {id:"c6", st:"case", q:"Take home: analyze this data set and present in 10 minutes.",
+  why:"Tests analysis, prioritization and executive communication together.",
+  look:"Answer first, three insights, one recommendation, risks and next steps. Clean, readable charts.",
+  how:"Slide 1: the answer. Slides 2 to 4: one insight each. Slide 5: recommendation, risk, next step. Leave five minutes for questions.",
+  trap:"Showing every chart you made.",
+  stories:["dash","total"], show:"dash", tags:["presentation"]}
+];
+
+/* ---------- DATA: company packs (reported by candidates) ---------- */
+const COMPANIES = [
+ {name:"Clio", flow:["Recruiter call","Hiring or sales manager","Further round or panel; sales roles report a mock sales call"],
+  asked:["Why Clio?","What are your salary expectations?","Tell me about your previous sales experience","How are you improving your skills?","Your biggest win","Times you have failed","Where do you see yourself in five years?","What sort of leader do you aspire to be?"],
+  tips:["A Toronto candidate who accepted an offer advised getting a referral. Your informational chat with George Lambrakos is that route: keep it a conversation, no ask.","Prepare a setback story; it is reported more than once."],
+  src:[["Glassdoor: Clio Account Executive, Toronto","https://www.glassdoor.com/Interview/Clio-Interview-E713360-RVW92507746.htm"],["Glassdoor: Clio Operations Manager, Toronto","https://www.glassdoor.co.uk/Interview/Clio-Interview-E713360-RVW36701916.htm"],["Glassdoor: Clio panel review","https://www.glassdoor.com.hk/Interview/Clio-Interview-E713360-RVW16818688.htm"]]},
+ {name:"Deloitte", flow:["HR recruiter: motivation, current role, expectations","Case study: timed online case up to 3 hours, or a 1 hour build plus a 10 minute presentation","Director interview","Partner interview"],
+  asked:["Why Deloitte?","How would you deal with multiple stakeholders?","Case types reported: market sizing, de-bottlenecking a process, a business situation"],
+  tips:["Rounds often run half behavioural, half case.","One candidate was told rounds were behavioural and then got a niche industry case. Prepare a case for every round.","A review warns of low salary offers: anchor to the posted band."],
+  src:[["Glassdoor: Deloitte Senior Consultant, Toronto","https://www.glassdoor.ca/Interview/Deloitte-Interview-E2763-RVW772946.htm"],["Glassdoor: Deloitte Monitor/Strategy","https://www.glassdoor.ca/Interview/Deloitte-Interview-E2763-RVW16650995.htm"],["Glassdoor: Deloitte Sr. Consultant","https://static.glassdoor.be/Interview/Deloitte-Interview-E10177265-RVW99033917.htm"]]},
+ {name:"SpaceX / Starlink", flow:["Several short phone rounds, often about 30 minutes each","Team specific rounds with sales managers","Sometimes a short project or presentation on Starlink"],
+  asked:["Why SpaceX, and why this team?","What do you know about Starlink's enterprise business?","Walk through a career highlight you are most proud of","Competitive landscape, including Amazon Kuiper, Viasat and OneWeb"],
+  tips:["Rounds are short: lead every answer with the result.","Use Ryan Goodnight for the referral path you planned."],
+  src:[["Glassdoor: SpaceX interview reviews","https://www.glassdoor.sg/Interview/SpaceX-Interview-E40371-RVW103660062.htm"],["Exponent: SpaceX interview guide","https://www.tryexponent.com/guides/spacex-product-manager-pm-interview"],["Glassdoor: Starlink presentation report","https://www.glassdoor.ie/Interview/SpaceX-Interview-E40371-RVW52038847.htm"]]},
+ {name:"Kinaxis", flow:["Recruiter","Hiring manager","Sometimes a panel with the full team"],
+  asked:["How could you add value to the company?","How do you resolve conflicts?","How hands on do you want to stay, and what teams have you managed?","Deep questions on supply chain experience"],
+  tips:["Several candidates report slow or no feedback. Log the date: Kinaxis is in Ontario, so the 45 day notice rule applies.","Bring supply chain proof: Rusticano supply chain efficiency (+15%) and your distribution channel work."],
+  src:[["Glassdoor: Kinaxis Manager reviews","https://static.glassdoor.ca/Interview/Kinaxis-Interview-E13770-RVW10400260.htm"],["Glassdoor: Kinaxis Manager, unstructured process","https://www.glassdoor.it/Colloquio/Kinaxis-Colloquio-E13770-RVW37018484.htm"]]},
+ {name:"Your next company", flow:["Add what you learn to the log after each round"],
+  asked:["Search Glassdoor CA and Indeed CA for the exact title plus 'interview'","Ask the recruiter: how many rounds, who is on them, and is there a case?"],
+  tips:["Ask your 1st degree contacts at the company what the hiring manager values most.","Run the Decode tab on the JD the same day you apply."], src:[]}
+];
+
+/* ---------- DATA: showcase ---------- */
+const ASSETS = {
+ plan:{name:"30/60/90 day plan", what:"One page: three columns, four rows, built on this manager's stated priorities."},
+ dash:{name:"Dashboard or RevOps model", what:"A screenshot or short walk through of a forecast, quota or KPI model you built."},
+ tools:{name:"Your digital tools", what:"Job Engine or Career Radar style builds as proof of automation skill. 60 seconds, no personal data on screen."},
+ cases:{name:"One page case write-ups", what:"Before and after impact stories: problem, action, numbers."}
+};
+const SIGNALS = [["analytics","Analytics heavy JD"],["ai","AI or automation in JD"],["lead","People leadership"],["consult","Consulting or client facing"],["channel","Partner or channel"],["exec","Senior interviewer (VP or above)"]];
+const SH_STAGES = {hr:"HR screen", hm:"Hiring manager", panel:"Panel", case:"Case study", final:"Final / executive"};
+
+function showcase(stage, mins, sig){
+  const s = new Set(sig); const out = {};
+  const v = (verdict, when, why) => ({verdict, when, why});
+  if(stage==="hr"){
+    out.plan = v("hold","Mention near the end","Say: 'I have sketched a first 90 days view I would value walking the hiring manager through.' It signals preparation without spending screen time.");
+    out.dash = v("hold","Not in this round","Recruiters screen fit and logistics.");
+    out.tools = s.has("ai") ? v("offer","Only if asked about AI or tools","Describe in one sentence and offer to show it to the hiring manager.") : v("hold","Not in this round","No signal that it matters yet.");
+    out.cases = v("offer","After the call, if asked for material","Send one page matched to the JD's top problem so the recruiter can pass it on.");
+  } else if(stage==="hm"){
+    out.plan = mins>=30 ? v("show","When they ask about priorities or the first months; otherwise at 'any questions for me?'","Say: 'Based on what I have learned, I put together a one page view of my first 90 days. Would two minutes on it be useful?'") : v("offer","Offer to send after the call","A short slot leaves no room to walk through it well.");
+    out.dash = (s.has("analytics")||s.has("exec")) ? v("show","When you answer the forecasting or metrics question","One screenshot, 60 seconds: what it showed and the decision it drove.") : v("offer","If they ask how you report","Describe it first; show only on request.");
+    out.tools = s.has("ai") ? v("offer","When they ask about tools, AI or efficiency","60 second screen share as method proof, then back to their problem.") : v("hold","Hold","It can read as a side project unless the JD values automation.");
+    out.cases = v("show","Right after your strongest STAR answer","Pick the one case that mirrors their biggest problem. One, not three.");
+  } else if(stage==="panel"){
+    out.plan = v("hold","Only if a panelist asks","Panels score each competency question; a plan walk through eats that time.");
+    out.dash = (s.has("analytics")) ? v("offer","When the analytics or finance panelist asks a data question","Offer the screenshot; keep it under a minute.") : v("hold","Hold","Answer the competency first.");
+    out.tools = s.has("ai") ? v("offer","On the AI or automation question","Describe it; show only if invited.") : v("hold","Hold","Not scored here.");
+    out.cases = v("offer","Send after, as a leave-behind","A one page pack with two or three cases helps panelists score you consistently afterwards.");
+  } else if(stage==="case"){
+    out.plan = v("hold","Not in the case","Stay on the problem you were given.");
+    out.dash = v("show","As the format of your answer","Build your deliverable like your best dashboard: answer first, three insights, one recommendation.");
+    out.tools = s.has("ai") ? v("offer","When asked how you built it","Explain the workflow you used and how you checked it.") : v("hold","Hold","Keep focus on the case.");
+    out.cases = v("show","In the close","One sentence: 'I solved a version of this at X; the result was Y.'");
+  } else {
+    out.plan = v("show","Early, when they ask how you would start","Version 2: refine it with everything learned in earlier rounds and name who said what mattered.");
+    out.dash = s.has("exec") ? v("offer","If they ask for evidence","Executives want the decision it drove, not the chart.") : v("offer","If asked","Keep it to one image.");
+    out.tools = s.has("ai") ? v("offer","If digital or AI comes up","One minute, then back to their number.") : v("hold","Hold","Not needed at this stage.");
+    out.cases = v("show","As the close","Tie your top case to their top priority, then ask about next steps.");
+  }
+  if(s.has("consult")) out.cases.why += " Consulting interviewers expect a crisp case story: problem, approach, numbers.";
+  if(s.has("channel") && out.cases.verdict!=="hold") out.cases.why += " Lead with the partner network or partner exit case.";
+  if(s.has("lead") && stage!=="hr") out.plan.why += " Add a people row: how you will learn the team before changing anything.";
+  return out;
+}
+
+/* ---------- Example decode, shown at rest ---------- */
+const EXAMPLE_JD = `Manager, Sales Operations (example posting, Toronto, hybrid)
+Salary range: $115,000 to $140,000. This posting is for an existing vacancy. We use AI tools to help screen applications.
+
+We are a fast-growing SaaS company scaling our sales team from 25 to 40 reps this year. Reporting to the VP Sales, you will own forecasting, territory and quota planning, and sales reporting.
+
+What you will do
+- Own the weekly forecast process and improve forecast accuracy
+- Design territories, quotas and capacity models for new and existing reps
+- Partner with Finance on compensation plan design and administration
+- Maintain Salesforce data hygiene and drive CRM adoption
+- Build dashboards for sales leadership and the executive team
+- Identify process improvements and automation opportunities
+
+What you bring
+- 5+ years in sales operations or revenue operations
+- Advanced Excel and Salesforce reporting; Power BI an asset
+- Strong stakeholder management with senior sales leaders
+- Comfortable in a fast-paced, build-from-scratch environment`;
+
+const EXAMPLE_OUT = {
+ title:"Example: Manager, Sales Operations (SaaS, Toronto)", source:"example",
+ purpose:"Turn a sales team that is growing from 25 to 40 reps into a predictable number: a forecast the VP can trust, fair quotas for new hires, and one version of the truth for leaders.",
+ problems:[
+  {p:"The forecast is not trusted", e:"'Own the weekly forecast process and improve forecast accuracy'"},
+  {p:"Headcount is growing faster than planning", e:"'scaling our sales team from 25 to 40 reps' and 'territories, quotas and capacity models'"},
+  {p:"CRM data is unreliable", e:"'Maintain Salesforce data hygiene and drive CRM adoption'"},
+  {p:"Comp plans need redesign as the team scales", e:"'Partner with Finance on compensation plan design'"}
+ ],
+ metrics:["Forecast lands within a tight band of actual by the second quarter","New reps ramp to quota on plan","CRM adoption and field completeness","Time from data to leadership report"],
+ hidden:["'Fast-paced, build-from-scratch' usually means thin process and no predecessor playbook: show you build structure.","Reporting to the VP Sales, not Finance: the VP is your customer, and influence matters as much as modelling.","AI screening is disclosed: mirror the JD's exact terms (forecast accuracy, capacity models, data hygiene) in your resume."],
+ stages:{
+  hr:["Tell me about yourself (lead with forecast and quota systems)","Salary: anchor in the upper portion of $115,000 to $140,000","Why this role now"],
+  hm:["How would you improve forecast accuracy?","How do you set quotas for new reps?","First 90 days","A VP pushes back on your data"],
+  panel:["Influencing people who do not report to you","A conflict with a stakeholder","Using AI or automation"],
+  case:["Design territories and quotas for 15 new reps","Diagnose a forecast miss"]
+ },
+ stories:[["geo","Forecast accuracy"],["dash","Executive reporting"],["crm","CRM adoption"],["comp","Comp redesign with Finance"]],
+ showcase:"Hiring manager round: bring the 30/60/90 plan built around forecast, quota and CRM adoption. Offer one dashboard screenshot when forecasting comes up. Hold the digital tools unless they ask about automation.",
+ risks:[["Seniority reads above Manager level","Lead with model scope (channels, agents, partner offices), not team size, and say you want hands on ownership."],["SaaS experience","Bridge with HubSpot pipeline design, Salesforce Einstein reporting and the Rotman Tech Sales Certificate."]],
+ ask:["What does a good forecast call look like to you today?","Where do new reps stall in their first 90 days?","What would make you say in a year this was a great hire?"],
+ fit:82
+};
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const storyById = id => STORIES.find(s => s.id===id);
+const chip = st => `<span class="chip st-${st}">${esc(STAGES[st]||SH_STAGES[st]||st)}</span>`;
+let SAMPLE=null, DICT=null, TTS=null, DB=null;
+
+/* ---------- tabs and routing ---------- */
+const TABS = [
+ ["pipeline","Pipeline",'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>'],
+ ["decode","Decode",'<path d="M4 5h16M4 12h10M4 19h7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="18" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"/>'],
+ ["questions","Questions",'<path d="M12 18v.01M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="2" fill="none"/>'],
+ ["stories","Stories",'<path d="M5 4h10l4 4v12H5z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/><path d="M8 12h8M8 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
+ ["showcase","Showcase",'<rect x="3" y="5" width="18" height="12" rx="2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
+ ["rehearse","Rehearse",'<rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>']
+
+];
+function buildTabs(){
+  const html = TABS.map(([id,label,icon]) => `<button class="tab" data-tab="${id}"><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}</button>`).join("");
+  $("#tabbar").innerHTML = html; $("#tabsTop").innerHTML = html;
+  document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => { location.hash = b.dataset.tab; }));
+}
+function route(){
+  const id = (location.hash||"").replace("#","");
+  const valid = TABS.some(t => t[0]===id) ? id : "pipeline";
+  document.querySelectorAll("main > .view").forEach(v => v.classList.toggle("on", v.id==="v-"+valid));
+  document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-current", b.dataset.tab===valid ? "page" : "false"));
+  window.scrollTo(0,0);
+}
+
+/* ---------- DECODE ---------- */
+let LAST_DECODE=null;
+function renderDecode(d){
+  LAST_DECODE=d;
+  const st = d.stages||{};
+  const stageBlocks = ["hr","hm","panel","case"].map(k => (st[k]&&st[k].length) ? `<div class="card"><div class="row">${chip(k)}</div><ul class="clean">${st[k].map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>` : "").join("");
+  const fit = Number(d.fit)||0;
+  $("#decodeOut").innerHTML = `
+  <div class="card">
+    <div class="row between"><span class="k">${d.source==="example"?"Example result":"Result"}</span>${fit?`<span class="chip">Fit ${fit}%</span>`:""}</div>
+    <h2>${esc(d.title||"")}</h2>
+    ${fit?`<div class="meter" aria-hidden="true"><i style="width:${Math.min(100,fit)}%"></i></div>`:""}
+    <div class="k">Job purpose: why this role exists</div>
+    <p style="font-size:19px;font-weight:600">${esc(d.purpose)}</p>
+  </div>
+  <div class="grid2">
+    <div class="card"><div class="k">Problems you are hired to solve</div><ol class="clean">${(d.problems||[]).map(x=>`<li><b>${esc(x.p)}</b><br><span class="muted small">${esc(x.e)}</span></li>`).join("")}</ol></div>
+    <div class="card"><div class="k">How success will be measured</div><ul class="clean">${(d.metrics||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
+      <div class="k">Between the lines</div><ul class="clean small">${(d.hidden||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+  </div>
+  <h3>Likely questions by stage</h3>
+  <div class="grid2">${stageBlocks}</div>
+  <div class="grid2">
+    <div class="card"><div class="k">Stories to lead with</div><div style="display:flex;flex-direction:column;gap:8px">${(d.stories||[]).map(([id,why])=>{const s=storyById(id); return s?`<div><button class="story-pill" data-story="${id}">${esc(s.title)}</button> <span class="small muted">${esc(why)}</span></div>`:"";}).join("")}</div></div>
+    <div class="card"><div class="k">Showcase plan</div><p>${esc(d.showcase)}</p><button class="btn sm" data-go="showcase">Open showcase engine</button></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><div class="k">Fit risks and how to defuse them</div><ul class="clean">${(d.risks||[]).map(([r,f])=>`<li><b>${esc(r)}.</b> ${esc(f)}</li>`).join("")}</ul></div>
+    <div class="card"><div class="k">Questions to ask the hiring manager</div><ul class="clean">${(d.ask||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+  </div>`;
+  if(d.source!=="example") $("#decodeOut").insertAdjacentHTML("beforeend",`<div class="row"><button class="btn primary" id="btnSavePipe">Save to pipeline</button></div>`);
+  const sp=$("#btnSavePipe"); if(sp) sp.addEventListener("click",()=>{ sp.disabled=true; saveDecodeToPipeline(LAST_DECODE); });
+  wireStoryPills($("#decodeOut"));
+  $("#decodeOut").querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{location.hash=b.dataset.go;}));
+}
+
+const SIG_MAP = [
+ {k:/forecast/i, p:"The forecast is not trusted", m:"Forecast accuracy against actual", q:{hm:"How would you improve our forecast accuracy?",case:"Diagnose a forecast miss"}, s:["geo","Forecast accuracy"]},
+ {k:/quota|territor|capacity/i, p:"Planning has not kept up with growth", m:"Quota attainment distribution and ramp", q:{hm:"How do you set territories and quotas?",case:"Design territories and quotas"}, s:["geo","Quota and capacity"]},
+ {k:/compensation|commission|incentive/i, p:"Compensation plans drive the wrong behaviour", m:"Attainment and cost of sales", q:{hm:"Tell me about a comp plan you changed"}, s:["comp","Comp redesign"]},
+ {k:/salesforce|hubspot|crm|data hygiene|data quality/i, p:"CRM data is unreliable", m:"CRM adoption and data completeness", q:{panel:"Influencing people who do not report to you"}, s:["crm","CRM adoption"]},
+ {k:/dashboard|report|kpi|analytics|insight/i, p:"Leaders lack one version of the truth", m:"Time from data to decision", q:{hm:"Which metrics would you show our executives?"}, s:["dash","Reporting"]},
+ {k:/partner|channel|reseller|alliance/i, p:"The partner channel is underperforming", m:"Partner sourced revenue and productivity", q:{case:"Our partner program is underperforming"}, s:["partner","Partner performance"]},
+ {k:/market entry|new market|expansion|go-to-market|go to market|launch/i, p:"A new market or product needs a route to revenue", m:"Revenue from the new market or launch", q:{case:"Should we enter this segment? Size it."}, s:["siwa","Market entry"]},
+ {k:/automation|\bai\b|artificial intelligence|workflow/i, p:"Manual work is slowing the team", m:"Hours saved and cycle time", q:{panel:"How have you used AI or automation?"}, s:["ai","AI and automation"]},
+ {k:/pricing|price/i, p:"Pricing is leaving money on the table", m:"Margin and price realization", q:{case:"How would you approach a pricing change?"}, s:["rust","Pricing"]},
+ {k:/insurance|policy|underwrit/i, p:"Insurance distribution needs to grow", m:"Policies written through new channels", q:{hm:"What do you know about insurance distribution?"}, s:["axa","Insurance channels"]},
+ {k:/stakeholder|cross-functional|cross functional/i, p:"Teams are not aligned", m:"Stakeholder satisfaction and delivery on plan", q:{panel:"A conflict with a stakeholder"}, s:["partner","Stakeholders"]},
+ {k:/market intelligence|market sensing|research|competitive/i, p:"Decisions need better market evidence", m:"Decisions informed by research", q:{case:"Present findings from a market scan"}, s:["total","Market sensing"]}
+];
+function decodeOffline(title, jd){
+  const hits = SIG_MAP.filter(x => x.k.test(jd));
+  const top = hits.slice(0,4);
+  const stages = {hr:["Tell me about yourself","Why this role, and why us?","Salary: anchor in the upper portion of the posted band"], hm:["What would you do in your first 90 days?"], panel:["Tell me about a time you failed or missed a target"], case:[]};
+  top.forEach(h => Object.entries(h.q).forEach(([k,v]) => { if(!stages[k].includes(v)) stages[k].push(v); }));
+  if(!stages.case.length) stages.case.push("Take home: analyze a data set and present in 10 minutes");
+  const range = (jd.match(/\$\s?\d[\d,]*(?:\s?(?:to|-|and)\s?\$?\s?\d[\d,]*)?/)||[])[0];
+  if(range) stages.hr[2] = "Salary: posted range is "+range.replace(/-/g," to ")+"; anchor in its upper portion";
+  const hidden = [];
+  if(/fast.paced|build.from.scratch|scrappy|ambigu/i.test(jd)) hidden.push("'Fast-paced' or 'build from scratch' usually means thin process: show you build structure.");
+  if(/\bai\b.*(screen|assess|select)|artificial intelligence/i.test(jd)) hidden.push("AI screening is disclosed: mirror the JD's exact terms in your resume.");
+  if(/report(ing)? to (the )?(vp|director|head|chief)/i.test(jd)) hidden.push("Note who you report to: that person is your first customer.");
+  if(!hidden.length) hidden.push("Ask the recruiter what triggered this opening: growth, a departure, or a new function.");
+  const purpose = top.length ? "This role exists to fix "+top.slice(0,2).map(h=>h.p.toLowerCase()).join(" and ")+", and keep it fixed as the business grows." : "Paste a fuller JD to find the job purpose: the responsibilities section carries the signal.";
+  return {title:title, source:"quick", purpose,
+    problems: top.map(h => ({p:h.p, e:"Matched in the JD: "+(jd.match(h.k)||[""])[0]})),
+    metrics: top.map(h => h.m), hidden, stages,
+    stories: top.map(h => h.s),
+    showcase: "Hiring manager round: bring a 30/60/90 plan built on the problems above. Use the showcase engine for the exact timing.",
+    risks:[["Seniority may read above the level","Lead with model scope and commercial impact, and say you want hands on ownership."]],
+    ask:["What does success look like at six months?","Which of these problems hurts most today?","What would make you say in a year this was a great hire?"],
+    fit:0};
+}
+function storyDigest(){ return STORIES.filter(s=>!s.gap).map(s=>`${s.id}: ${s.title} (${s.where}). Result: ${s.R}`).join("\n"); }
+async function decodeAI(){
+  const jd = $("#jdText").value.trim(); const title = $("#jdCompany").value.trim()||"This role";
+  if(jd.length<80){ $("#decodeStatus").textContent="Paste the full job description first."; return; }
+  if(!SAMPLE){ renderDecode(decodeOffline(title,jd)); $("#decodeStatus").textContent="Claude is not available here, so this is the quick decode."; return; }
+  const btn=$("#btnDecode"); btn.disabled=true; $("#decodeStatus").textContent="Decoding, about 20 seconds";
+  const prompt = `You are a senior Canadian recruiting consultant preparing a candidate for interviews.
+Analyze the job description and return ONLY a JSON object with these keys:
+"purpose": one sentence, why this role exists (the business outcome, not the duties).
+"problems": array of 3 to 5 objects {"p": business problem the hire must solve, "e": short quoted evidence from the JD}.
+"metrics": 3 to 5 ways success will likely be measured at 6 to 12 months.
+"hidden": 2 to 4 between-the-lines readings of the JD wording (what it implies about team, maturity, pressure).
+"stages": object with keys "hr","hm","panel","case", each an array of 3 to 5 likely questions for that stage, specific to this JD.
+"stories": array of 3 or 4 pairs [story_id, short reason], choosing ONLY from the candidate story ids below.
+"showcase": 2 to 3 sentences on whether to show a 30/60/90 plan, a dashboard or RevOps model, digital tools, or one page case write-ups, which one, and at what moment.
+"risks": array of 2 or 3 pairs [fit risk, how to defuse it] based on the candidate record.
+"ask": 3 or 4 sharp questions to ask the hiring manager.
+"fit": integer 0 to 100, weighted match of the candidate to the must-haves.
+Rules: Canadian spelling. No em dashes or en dashes anywhere; use commas, colons or parentheses. Plain, human wording. Never invent candidate facts: use only the record below. Do not mention age, years of experience totals or graduation years.
+
+CANDIDATE RECORD (verified):
+Positioning: Revenue Operations and Sales Strategy specialist: forecasting, quota and capacity models, KPI dashboards, partner channels, market entry. MBA. Rotman Tech Sales Certificate (University of Toronto). Tools: Salesforce with Einstein Analytics, HubSpot, Power BI, advanced Excel, Claude, ChatGPT, Gemini. Doing Salesforce Trailhead modules now. Based in Oakville, open to Toronto and GTA. Start two weeks after an offer.
+Stories:
+${storyDigest()}
+
+ROLE: ${title}
+JOB DESCRIPTION:
+${jd.slice(0,12000)}`;
+  try{
+    let d;
+    try{ d = await SAMPLE.json(prompt, {modelTier:"default"}); }
+    catch(e){ if(e&&e.code==="not_granted") throw e; const r = await SAMPLE(prompt,{modelTier:"default"}); d = JSON.parse((r.text.match(/\{[\s\S]*\}/)||["{}"])[0]); }
+    if(!d||!d.purpose) throw {code:"bad_output"};
+    d.title = title; d.source="ai";
+    d.stories = (d.stories||[]).filter(x => Array.isArray(x) && storyById(x[0]));
+    renderDecode(d); $("#decodeStatus").textContent="";
+  }catch(e){
+    renderDecode(decodeOffline(title,jd));
+    $("#decodeStatus").textContent = e&&e.code==="rate_limited" ? "Claude is busy; showing the quick decode. Try again in a minute." : e&&e.code==="not_granted" ? "Claude access was declined; showing the quick decode." : "Showing the quick decode.";
+  }finally{ btn.disabled=false; }
+}
+
+/* ---------- QUESTIONS ---------- */
+let qStage="all";
+function renderQFilter(){
+  const opts=[["all","All"],...Object.entries(STAGES)];
+  $("#qFilter").innerHTML = opts.map(([k,l])=>`<button data-st="${k}" aria-pressed="${k===qStage}">${l} <span class="muted">${k==="all"?Q.length:Q.filter(x=>x.st===k).length}</span></button>`).join("");
+  $("#qFilter").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{qStage=b.dataset.st;renderQFilter();renderQ();}));
+}
+function renderQ(){
+  const term = $("#qSearch").value.trim().toLowerCase();
+  const list = Q.filter(x => (qStage==="all"||x.st===qStage) && (!term || (x.q+x.why+x.how+x.tags.join(" ")).toLowerCase().includes(term)));
+  $("#qList").innerHTML = list.length ? list.map(x => `
+   <details class="q">
+     <summary>${chip(x.st)}<span class="qt">${esc(x.q)}</span></summary>
+     <div class="qbody">
+       <div class="why full"><div class="k">Why they ask</div>${esc(x.why)}</div>
+       <div><div class="k">What scores well</div><p>${esc(x.look)}</p></div>
+       <div><div class="k">Answer structure</div><p>${esc(x.how)}</p></div>
+       <div class="trap full"><div class="k">Trap</div>${esc(x.trap)}</div>
+       <div class="full row">${x.stories.map(id=>{const s=storyById(id);return s?`<button class="story-pill" data-story="${id}">${esc(s.title)}</button>`:"";}).join("")}
+         ${x.show?`<span class="chip">Showcase: ${esc(ASSETS[x.show].name)}</span>`:""}
+         <button class="btn sm ghost" data-practise="${x.id}">Practise this</button></div>
+     </div>
+   </details>`).join("") : `<p class="muted">No questions match. Try a shorter word.</p>`;
+  wireStoryPills($("#qList"));
+  $("#qList").querySelectorAll("[data-practise]").forEach(b=>b.addEventListener("click",()=>{ setRehearse(b.dataset.practise); location.hash="rehearse"; }));
+}
+function renderCompanies(){
+  $("#qCompanyWrap").innerHTML = COMPANIES.map(c => `
+  <div class="card">
+    <h3>${esc(c.name)}</h3>
+    <div class="grid2">
+      <div><div class="k">Reported process</div><ol class="clean">${c.flow.map(f=>`<li>${esc(f)}</li>`).join("")}</ol></div>
+      <div><div class="k">Reported questions</div><ul class="clean">${c.asked.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></div>
+    </div>
+    <div class="why"><div class="k">How to use it</div><ul class="clean">${c.tips.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></div>
+    ${c.src.length?`<div class="note sources">Sources: ${c.src.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${esc(t)}</a>`).join(" | ")}. Candidate reports vary by team and year.</div>`:""}
+  </div>`).join("");
+}
+
+/* ---------- STORIES: visual question wall, connection map, proof wall, story cards ---------- */
+const ICONS = {
+ geo:'<path d="M12 21s-6-5.6-6-11a6 6 0 1 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/>',
+ huntfarm:'<path d="M12 21V12M12 12L5 5M12 12l7-7M5 5v4M5 5h4M19 5v4M19 5h-4"/>',
+ dash:'<path d="M12 3l9 16H3z"/><path d="M7.5 13h9M5.2 17h13.6"/>',
+ partner:'<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.6 7.6L20 18M8.6 16.4L20 6"/>',
+ comp:'<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.6-1-1.7-1.5-3-1.5-1.7 0-3 .9-3 2.1 0 2.9 6 1.4 6 4.3 0 1.2-1.3 2.1-3 2.1-1.3 0-2.5-.6-3-1.5M12 6v2M12 16v2"/>',
+ crm:'<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/>',
+ cash:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/>',
+ pos:'<circle cx="12" cy="12" r="2.2"/><circle cx="4.5" cy="6" r="1.8"/><circle cx="19.5" cy="6" r="1.8"/><circle cx="4.5" cy="18" r="1.8"/><circle cx="19.5" cy="18" r="1.8"/><path d="M6 7l4.3 3.6M18 7l-4.3 3.6M6 17l4.3-3.6M18 17l-4.3-3.6"/>',
+ axa:'<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+ ai:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+ rust:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
+ siwa:'<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+ total:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
+ camp:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+ uth:'<path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/>',
+ fail:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4v.6M12 17v.01"/>'
+};
+const PROOF = {
+ geo:{big:"#1",sub:"share in 87% of cities",bar:87,label:"Cities at #1 share"},
+ huntfarm:{big:"+24%",sub:"pipeline, +20% closed deals",bar:24,label:"Pipeline growth"},
+ dash:{big:"99%",sub:"attainment, 8 straight quarters",bar:99,label:"Team attainment"},
+ partner:{big:"C$20M",sub:"saved a year, efficiency +23%",bar:23,label:"Channel efficiency"},
+ comp:{big:"C$400K",sub:"saved a year, sales +10%",bar:10,label:"Sales lift after comp redesign"},
+ crm:{big:"90%",sub:"CRM adoption, accuracy +45%",bar:90,label:"CRM adoption"},
+ cash:{big:"10M+",sub:"transactions, 40%+ adoption",bar:40,label:"Mobile money adoption"},
+ pos:{big:"15,000+",sub:"points of sale, from 2,000",bar:25,label:"Distribution coverage gain"},
+ axa:{big:"+15%",sub:"revenue, churn down 12%",bar:15,label:"AXA revenue growth"},
+ ai:{big:"70%",sub:"faster analysis, days to hours",bar:70,label:"Analysis time cut"},
+ rust:{big:"+25%",sub:"revenue in 18 months",bar:25,label:"Rusticano revenue"},
+ siwa:{big:"C$8M",sub:"annual sales potential found",bar:0,label:""},
+ total:{big:"85%",sub:"satisfaction, C$50M+ decisions",bar:85,label:"Customer satisfaction"},
+ camp:{big:"45%",sub:"positive response, 20,000 contacts",bar:45,label:"Positive response rate"},
+ uth:{big:"3x",sub:"return on investment",bar:0,label:""},
+ fail:{big:"?",sub:"your setback story",bar:0,label:""}
+};
+const STAGE_VAR = {hr:"var(--hr)", hm:"var(--hm)", panel:"var(--panel)", case:"var(--case)"};
+const qNum = q => "Q"+(Q.indexOf(q)+1);
+let sSel = null; // selected question id
+const icon = (id,size=22) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[id]||ICONS.fail}</svg>`;
+
+function renderS(){
+  const sel = sSel ? Q.find(q=>q.id===sSel) : null;
+  const hot = new Set(sel ? sel.stories : []);
+  /* A. Question wall */
+  $("#sWall").innerHTML = Object.entries(STAGES).map(([st,label])=>{
+    const qs = Q.filter(q=>q.st===st);
+    return `<div class="lane" style="--c:${STAGE_VAR[st]}">
+      <div class="lane-h"><span>${esc(label)}</span><b>${qs.length}</b></div>
+      ${qs.map(q=>`<button class="qchip ${sSel===q.id?"on":""}" data-q="${q.id}" aria-pressed="${sSel===q.id}">
+        <span class="qn">${qNum(q)}</span><span class="qt2">${esc(q.q)}</span>
+        <span class="qi">${q.stories.map(id=>`<span class="mini" title="${esc((storyById(id)||{}).title||"")}">${icon(id,14)}</span>`).join("")}</span>
+      </button>`).join("")}
+    </div>`;}).join("");
+  $("#sWall").querySelectorAll("[data-q]").forEach(b=>b.addEventListener("click",()=>{ sSel = sSel===b.dataset.q ? null : b.dataset.q; renderS(); if(sSel) document.getElementById("sPick").scrollIntoView({block:"nearest"}); }));
+  /* selected question panel */
+  $("#sPick").innerHTML = sel ? `<div class="card" style="border-left:6px solid ${STAGE_VAR[sel.st]}">
+      <div class="row between"><span class="chip st-${sel.st}">${qNum(sel)} ${esc(STAGES[sel.st])}</span><button class="btn sm ghost" id="sClear">Show all</button></div>
+      <h3>${esc(sel.q)}</h3>
+      <div class="why small"><b>Why they ask:</b> ${esc(sel.why)}</div>
+      <div class="flow">${["Hook","Story","Number","Link to them"].map((t,i)=>`<div class="step" style="--c:${STAGE_VAR[sel.st]}"><b>${i+1}</b>${t}</div>`).join("")}</div>
+      <div class="small"><b>Use:</b> ${sel.stories.length?sel.stories.map(id=>esc(storyById(id).title)).join(", "):"no story needed: answer directly with the structure"}</div>
+    </div>` : `<p class="small muted">Tap any question to light up the stories that answer it.</p>`;
+  const clr=$("#sClear"); if(clr) clr.addEventListener("click",()=>{sSel=null;renderS();});
+  /* B. Connection map */
+  renderMap(hot, sel);
+  /* C. Proof wall */
+  const bars = STORIES.filter(s=>PROOF[s.id]&&PROOF[s.id].bar).map(s=>({s,p:PROOF[s.id]})).sort((a,b)=>b.p.bar-a.p.bar);
+  $("#sProof").innerHTML = bars.map(({s,p})=>`<button class="pbar ${hot.size&&!hot.has(s.id)?"dim":""}" data-story="${s.id}">
+      <span class="pic">${icon(s.id,16)}</span>
+      <span class="plab">${esc(p.label)}</span>
+      <span class="ptrack"><i style="width:${p.bar}%"></i></span>
+      <span class="pval">${p.bar}%</span></button>`).join("");
+  /* D. Story cards */
+  const order = sel ? [...STORIES].sort((a,b)=>(hot.has(b.id)?1:0)-(hot.has(a.id)?1:0)) : STORIES;
+  $("#sList").innerHTML = order.map(s=>{
+    const used = Q.filter(q=>q.stories.includes(s.id)); const p = PROOF[s.id]||{};
+    const dim = hot.size && !hot.has(s.id);
+    return `<div class="card scard ${dim?"dim":""} ${s.gap?"stripe offer":""}" id="story-${s.id}">
+      <div class="shead">
+        <div class="sicon">${icon(s.id,30)}</div>
+        <div style="flex:1;min-width:0"><h3>${esc(s.title)}</h3><div class="small muted">${esc(s.where)}</div></div>
+        <div class="sbig"><b>${esc(p.big||"")}</b><span>${esc(p.sub||"")}</span></div>
+      </div>
+      <p class="hook">"${esc(s.hook)}"</p>
+      <div class="star">
+        ${[["S","Situation",s.S],["T","Task",s.T],["A","Action",s.A],["R","Result",s.R]].map(([k,l,t])=>`<div class="sstep s-${k}"><div class="sk">${k}<small>${l}</small></div><div class="st">${esc(t)}</div></div>`).join("")}
+      </div>
+      ${used.length?`<div class="row" style="gap:6px"><span class="k">Answers</span>${used.map(q=>`<button class="qdot" data-q2="${q.id}" style="background:${STAGE_VAR[q.st]}" title="${esc(q.q)}">${qNum(q)}</button>`).join("")}<span class="small muted">${used.length} question${used.length>1?"s":""}</span></div>`:""}
+    </div>`;}).join("");
+  $("#sList").querySelectorAll("[data-q2]").forEach(b=>b.addEventListener("click",()=>{ sSel=b.dataset.q2; renderS(); document.getElementById("sWall").scrollIntoView({block:"start"}); }));
+  wireStoryPills($("#sProof"));
+}
+function renderMap(hot, sel){
+  const qs = Q, ss = STORIES, rowH = 19, top = 24, H = top*2 + rowH*(qs.length-1);
+  const sStep = (H - top*2) / (ss.length-1);
+  const xq = 44, xs = 236, W = 360;
+  const yQ = i => top + i*rowH, yS = j => top + j*sStep;
+  let paths = "";
+  qs.forEach((q,i)=>q.stories.forEach(id=>{ const j=ss.findIndex(s=>s.id===id); if(j<0) return;
+    const on = sel ? sel.id===q.id : true;
+    paths += `<path d="M${xq+6} ${yQ(i)} C ${(xq+xs)/2} ${yQ(i)}, ${(xq+xs)/2} ${yS(j)}, ${xs-14} ${yS(j)}" stroke="${STAGE_VAR[q.st]}" stroke-width="${sel&&on?2.6:1.3}" fill="none" opacity="${sel?(on?0.95:0.08):0.4}"/>`; }));
+  const qLabels = qs.map((q,i)=>`<g class="mq" data-q="${q.id}" style="cursor:pointer"><circle cx="${xq}" cy="${yQ(i)}" r="5.5" fill="${STAGE_VAR[q.st]}" opacity="${sel&&sel.id!==q.id?0.35:1}"/><text x="${xq-10}" y="${yQ(i)+3.5}" text-anchor="end" font-size="10" fill="var(--muted)" font-weight="700">${qNum(q)}</text></g>`).join("");
+  const sLabels = ss.map((s,j)=>{ const lit = !hot.size || hot.has(s.id); const uses = qs.filter(q=>q.stories.includes(s.id)).length;
+    return `<g opacity="${lit?1:0.3}"><circle cx="${xs-6}" cy="${yS(j)}" r="${4+Math.min(uses,6)}" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.2"/><text x="${xs+8}" y="${yS(j)+3.5}" font-size="10.5" fill="var(--ink)" font-weight="${lit&&hot.size?700:500}">${esc(s.title.length>22?s.title.slice(0,21)+"…":s.title)}</text></g>`; }).join("");
+  $("#sMap").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Map linking each interview question to the stories that answer it">
+    <text x="${xq}" y="8" font-size="9" fill="var(--muted)" text-anchor="middle" font-weight="700">QUESTIONS</text>
+    <text x="${xs-6}" y="8" font-size="9" fill="var(--muted)" text-anchor="middle" font-weight="700">STORIES</text>
+    ${paths}${qLabels}${sLabels}</svg>
+    <p class="small muted">Bigger circle = the story answers more questions. Tap a dot on the left to trace one question.</p>`;
+  $("#sMap").querySelectorAll(".mq").forEach(g=>g.addEventListener("click",()=>{ sSel = sSel===g.dataset.q?null:g.dataset.q; renderS(); }));
+}
+
+function wireStoryPills(root){
+  root.querySelectorAll("[data-story]").forEach(b=>b.addEventListener("click",(e)=>{
+    e.preventDefault(); sSel=null; renderS(); location.hash="stories";
+    setTimeout(()=>{ const el=document.getElementById("story-"+b.dataset.story); if(el){ el.scrollIntoView({block:"start"}); el.style.outline="3px solid var(--accent)"; setTimeout(()=>el.style.outline="",1600);} },60);
+  }));
+}
+
+/* ---------- SHOWCASE ---------- */
+let shStage="hm", shMins=45, shSig=new Set(["analytics"]);
+function renderShowcaseControls(){
+  $("#shStage").innerHTML = Object.entries(SH_STAGES).map(([k,l])=>`<button data-k="${k}" aria-pressed="${k===shStage}">${l}</button>`).join("");
+  $("#shTime").innerHTML = [15,30,45,60].map(m=>`<button data-m="${m}" aria-pressed="${m===shMins}">${m} min</button>`).join("");
+  $("#shSignals").innerHTML = SIGNALS.map(([k,l])=>`<button data-s="${k}" aria-pressed="${shSig.has(k)}">${l}</button>`).join("");
+  $("#shStage").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{shStage=b.dataset.k;renderShowcaseControls();renderShowcase();}));
+  $("#shTime").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{shMins=+b.dataset.m;renderShowcaseControls();renderShowcase();}));
+  $("#shSignals").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{shSig.has(b.dataset.s)?shSig.delete(b.dataset.s):shSig.add(b.dataset.s);renderShowcaseControls();renderShowcase();}));
+}
+function renderShowcase(){
+  const r = showcase(shStage, shMins, [...shSig]);
+  const order = ["show","offer","hold"];
+  const keys = Object.keys(r).sort((a,b)=>order.indexOf(r[a].verdict)-order.indexOf(r[b].verdict));
+  $("#shOut").innerHTML = keys.map(k=>`
+   <div class="card stripe ${r[k].verdict}">
+     <div class="row between"><h3>${esc(ASSETS[k].name)}</h3><span class="verdict v-${r[k].verdict}">${r[k].verdict}</span></div>
+     <div class="small muted">${esc(ASSETS[k].what)}</div>
+     <div><span class="k">When</span> ${esc(r[k].when)}</div>
+     <p class="small">${esc(r[k].why)}</p>
+   </div>`).join("");
+}
+
+/* ---------- REHEARSE ---------- */
+let rStage="all", rCurrent=Q[0], rTimerId=null, rStartAt=0, rSecs=0;
+function renderRStage(){
+  const opts=[["all","Any"],...Object.entries(STAGES)];
+  $("#rStage").innerHTML = opts.map(([k,l])=>`<button data-st="${k}" aria-pressed="${k===rStage}">${l}</button>`).join("");
+  $("#rStage").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{rStage=b.dataset.st;renderRStage();nextQ();}));
+}
+function setRehearse(id){
+  const q = Q.find(x=>x.id===id)||Q[0]; rCurrent=q;
+  $("#rQ").innerHTML = `${chip(q.st)} ${esc(q.q)}`;
+  $("#rWhy").textContent = "Why they ask: "+q.why;
+  $("#rAns").value=""; $("#rOut").innerHTML=""; resetTimer();
+}
+function nextQ(){
+  const pool = Q.filter(x=>rStage==="all"||x.st===rStage).filter(x=>x!==rCurrent);
+  setRehearse(pool[Math.floor(Math.random()*pool.length)].id);
+}
+function fmt(s){ return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
+function resetTimer(){ clearInterval(rTimerId); rTimerId=null; rSecs=0; $("#rTimer").textContent="0:00"; $("#rStart").textContent="Start timer"; }
+function toggleTimer(){
+  if(rTimerId){ clearInterval(rTimerId); rTimerId=null; $("#rStart").textContent="Restart timer"; return; }
+  rStartAt=Date.now(); rSecs=0; $("#rStart").textContent="Stop timer";
+  rTimerId=setInterval(()=>{ rSecs=Math.round((Date.now()-rStartAt)/1000); $("#rTimer").textContent=fmt(rSecs); },500);
+}
+function quickCheck(text){
+  const words = (text.match(/\S+/g)||[]).length;
+  const secs = Math.round(words/140*60);
+  const nums = (text.match(/\d[\d,.]*\s?(%|percent|M|K|x|points)?/gi)||[]).length;
+  const fillers = (text.match(/\b(basically|actually|kind of|sort of|you know|like I said|honestly)\b/gi)||[]);
+  const dashes = /[\u2013\u2014]/.test(text);
+  const isBeh = /time|example|describe|tell me about/i.test(rCurrent.q);
+  const hasResult = /(result|up|down|grew|rose|cut|saved|reached|increased|reduced)/i.test(text);
+  const items = [
+    [secs>=45 && secs<=150, `Spoken length about ${fmt(secs)} (${words} words). Aim for 1:00 to 2:00.`],
+    [nums>=1, nums? `${nums} number${nums>1?"s":""} used. Numbers make results credible.` : "No numbers yet. Add one verified result."],
+    [!isBeh || hasResult, isBeh ? (hasResult?"A result is stated.":"No clear result. End on what changed and by how much.") : "Not a STAR question: lead with the point, then one proof."],
+    [fillers.length===0, fillers.length? `Filler words: ${[...new Set(fillers.map(f=>f.toLowerCase()))].join(", ")}.` : "No filler words."],
+    [!dashes, dashes ? "Contains long dashes; rewrite with commas." : "Clean punctuation."]
+  ];
+  return items;
+}
+function renderQuick(items){
+  $("#rOut").innerHTML = `<div class="card"><h3>Quick check</h3><ul class="clean">${items.map(([ok,t])=>`<li><span class="verdict ${ok?"v-show":"v-offer"}">${ok?"ok":"fix"}</span> ${esc(t)}</li>`).join("")}</ul></div>`;
+}
+async function coach(){
+  const ans = $("#rAns").value.trim();
+  if(ans.length<20){ $("#rStatus").textContent="Say or type an answer first."; return; }
+  if(rTimerId) toggleTimer();
+  const quick = quickCheck(ans);
+  if(!SAMPLE){ renderQuick(quick); $("#rStatus").textContent="Claude is not available here, so this is the quick check."; return; }
+  const btn=$("#rCoach"); btn.disabled=true; $("#rStatus").textContent="Coaching";
+  const q = rCurrent;
+  const prompt = `You are an interview coach in Canada. Score a candidate's spoken answer.
+Question (${STAGES[q.st]} stage): ${q.q}
+Why interviewers ask it: ${q.why}
+What scores well: ${q.look}
+Recommended structure: ${q.how}
+Trap to avoid: ${q.trap}
+Candidate's verified stories (the only facts allowed):
+${storyDigest()}
+Candidate answer${rSecs?` (spoken in ${rSecs} seconds)`:""}:
+"""${ans.slice(0,4000)}"""
+Return ONLY JSON: {"scores":{"intent":1-5,"structure":1-5,"evidence":1-5,"concision":1-5,"delivery":1-5},"overall":1-5,"strengths":[2 short items],"fixes":[3 short, specific items],"tightened":"a better version to say out loud in 60 to 100 seconds, first person, plain spoken English, using only facts from the answer or the verified stories"}.
+Rules: Canadian spelling. No em dashes or en dashes. No invented numbers. Short sentences that are easy to say aloud. Never mention age or total years of experience.`;
+  try{
+    let d;
+    try{ d = await SAMPLE.json(prompt,{modelTier:"default"}); }
+    catch(e){ if(e&&e.code==="not_granted") throw e; const r=await SAMPLE(prompt,{modelTier:"default"}); d=JSON.parse((r.text.match(/\{[\s\S]*\}/)||["{}"])[0]); }
+    if(!d||!d.scores) throw {code:"bad_output"};
+    const labels={intent:"Answers the real intent",structure:"Structure",evidence:"Evidence and numbers",concision:"Concision",delivery:"Easy to say aloud"};
+    $("#rOut").innerHTML = `
+     <div class="card">
+       <div class="row between"><h3>Coach score</h3><span class="chip">${esc(d.overall)} / 5</span></div>
+       ${Object.entries(labels).map(([k,l])=>`<div class="small">${l}<div class="meter"><i style="width:${(Number(d.scores[k])||0)*20}%"></i></div></div>`).join("")}
+       <div class="grid2"><div><div class="k">Keep</div><ul class="clean">${(d.strengths||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+       <div><div class="k">Fix</div><ul class="clean">${(d.fixes||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></div>
+     </div>
+     <div class="card">
+       <div class="row between"><h3>Tightened version</h3><div class="row"><button class="btn sm" id="rShadow">Hear it</button><button class="btn sm" id="rCopy">Copy</button></div></div>
+       <p id="rTight">${esc(d.tightened)}</p>
+       <p class="note">Shadow it: play it, then say it yourself with the timer running. Three passes a day builds fluency faster than rereading.</p>
+     </div>`;
+    $("#rShadow").addEventListener("click",()=>speak(d.tightened));
+    $("#rCopy").addEventListener("click",()=>{ navigator.clipboard.writeText(d.tightened).then(()=>{$("#rCopy").textContent="Copied";},()=>{$("#rCopy").textContent="Select and copy";}); });
+    $("#rStatus").textContent="";
+  }catch(e){
+    renderQuick(quick);
+    $("#rStatus").textContent = e&&e.code==="rate_limited" ? "Claude is busy; quick check shown. Try again shortly." : "Quick check shown.";
+  }finally{ btn.disabled=false; }
+}
+function speak(text){
+  if(TTS){ TTS.speak(text,{language:"en"}).catch(()=>{}); return; }
+  try{
+    const u = new SpeechSynthesisUtterance(text); u.lang="en-CA"; u.rate=0.95;
+    const v = speechSynthesis.getVoices().find(v=>/en-CA/i.test(v.lang)) || speechSynthesis.getVoices().find(v=>/^en/i.test(v.lang));
+    if(v) u.voice=v; speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){ $("#rStatus").textContent="Audio is not available in this view."; }
+}
+let dictating=false;
+function micClick(){
+  if(!DICT) return;
+  if(dictating){ DICT.stop().catch(()=>{}); return; }
+  const p = DICT.start();
+  p.catch(e=>{ $("#rStatus").textContent = e&&e.code==="not_granted" ? "Microphone declined. Typing still works." : "Could not start the microphone."; if(e&&e.code==="not_granted") $("#rMic").classList.add("hidden"); });
+  if(!rTimerId) toggleTimer();
+}
+
+/* ---------- date helpers ---------- */
+const OUT_LABEL={pending:"Waiting",advanced:"Advanced",declined:"Not selected",offer:"Offer"};
+function addDays(iso,n){ const d=new Date(iso+"T12:00:00"); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function fmtDate(iso){ if(!iso) return ""; try{ return new Date(iso+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}); }catch(e){ return iso; } }
+
+/* ---------- PIPELINE: data store ---------- */
+const COLS = ["apps","rounds","signals","lessons"];
+const STORE = {mode:"local", data:{apps:{},rounds:{},signals:{},lessons:{}}};
+const LS2 = "im_store_v2";
+const LANES = {revops:"RevOps / Sales Ops", channel:"Channel / Partner", strategy:"Strategy / Market entry", sales:"Sales leadership / BD", analytics:"Analytics / Marketing", other:"Other"};
+const STATUS = {shortlist:"Shortlisted", target:"Target", applied:"Applied", screen:"Screening", interview:"Interviewing", offer:"Offer", rejected:"Not selected", withdrawn:"Withdrawn", ghosted:"No response"};
+const ACTIVE = ["shortlist","target","applied","screen","interview","offer"];
+const GAPS = {
+ nodebrief:["No debrief captured","Log the questions within 24 hours of every round, so the next prep is built on facts.","pipeline"],
+ numbers:["Answers lacked numbers","End every story on a verified figure. Use Quick check in Rehearse.","rehearse"],
+ relevance:["Answers not tied to their problem","Run Decode before each round and open with their top problem.","decode"],
+ senior:["Read as overqualified","Lead with model scope and hands on ownership, not team size.","q:h5"],
+ domain:["Industry or domain gap","Prepare a one page domain brief and a bridge story.","stories"],
+ tools:["Tool depth questioned","Finish the Trailhead modules and prepare a Salesforce report walk through.","q:m8"],
+ length:["Answers ran long","Practise to 90 seconds with the timer.","rehearse"],
+ questions:["Weak questions for them","Use the hiring manager questions from Decode.","q:m11"],
+ salary:["Salary mismatch","Check the salary plan before every screen.","pipeline"],
+ noref:["No warm path","Find a 1st degree contact or referral before applying.","pipeline"],
+ lowfit:["Applied below 85% fit","Apply below 85% only with a referral or a rare match.","decode"],
+ casework:["Case or presentation was weak","Practise: answer first, three insights, one recommendation.","q:c6"],
+ failure:["No ready setback story","Build the setback story in the Story bank.","stories"]
+};
+let pFilter="shortlist";
+const today = () => new Date().toISOString().slice(0,10);
+const daysBetween = (a,b) => Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000);
+const num = v => { const n = Number(String(v||"").replace(/[^\d.]/g,"")); return isFinite(n)&&n>0 ? n : null; };
+const money = n => n ? "$"+Math.round(n).toLocaleString("en-CA") : "not set";
+const r1k = n => Math.round(n/1000)*1000;
+const appsArr = () => Object.entries(STORE.data.apps).map(([id,a])=>Object.assign({id},a));
+const byApp = (col,id) => Object.entries(STORE.data[col]).map(([k,v])=>Object.assign({id:k},v)).filter(x=>x.appId===id);
+
+function saveLocal2(){ try{ localStorage.setItem(LS2, JSON.stringify(STORE.data)); }catch(e){} }
+function loadLocal2(){ try{ const d = JSON.parse(localStorage.getItem(LS2)||"null"); if(d) COLS.forEach(c=>STORE.data[c]=d[c]||{}); }catch(e){} }
+/* GitHub storage: one JSON file per collection in a private repo */
+const GH = {owner:"MG4Trading", repo:"interview-model-data", branch:"main", token:"", sha:{}, ops:{apps:[],rounds:[],signals:[],lessons:[]}, timers:{}, busy:{}};
+const LSGH = "im_gh_token";
+function b64dec(t){ const bin=atob(String(t||"").replace(/\s/g,"")); return new TextDecoder().decode(Uint8Array.from(bin,c=>c.charCodeAt(0))); }
+function b64enc(str){ const b=new TextEncoder().encode(str); let bin=""; for(let i=0;i<b.length;i+=0x8000) bin+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000)); return btoa(bin); }
+async function ghReq(path,method,body){
+  const url=`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${path}`+(method==="PUT"?"":`?ref=${GH.branch}&t=${Date.now()}`);
+  const r=await fetch(url,{method:method||"GET",cache:"no-store",headers:{Authorization:"Bearer "+GH.token,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"},body:body?JSON.stringify(body):undefined});
+  if(!r.ok){ const e=new Error("GitHub "+r.status); e.status=r.status; throw e; }
+  return r.json();
+}
+async function ghLoad(c){
+  try{ const j=await ghReq(`data/${c}.json`); GH.sha[c]=j.sha; return JSON.parse(b64dec(j.content)||"{}")||{}; }
+  catch(e){ if(e.status===404){ GH.sha[c]=null; return {}; } throw e; }
+}
+function applyOp(obj,op){ if(op.t==="set") obj[op.id]=op.d; else if(op.t==="patch") obj[op.id]=Object.assign({},obj[op.id],op.d); else if(op.t==="del") delete obj[op.id]; }
+function ghPending(){ return COLS.some(c=>GH.ops[c].length||GH.busy[c]); }
+function setSync(t){ const el=$("#pMode"); if(el) el.textContent=t; }
+function ghQueue(c,op){
+  GH.ops[c].push(op); saveLocal2(); setSync("Saving to GitHub...");
+  clearTimeout(GH.timers[c]); GH.timers[c]=setTimeout(()=>ghFlush(c),700);
+}
+async function ghFlush(c,tries){
+  tries=tries||0; if(GH.busy[c]) { GH.timers[c]=setTimeout(()=>ghFlush(c),500); return; }
+  const n=GH.ops[c].length; if(!n) return;
+  GH.busy[c]=true;
+  const body={message:`app: update ${c} (${today()})`, content:b64enc(JSON.stringify(STORE.data[c],null,1)), branch:GH.branch};
+  if(GH.sha[c]) body.sha=GH.sha[c];
+  try{
+    const j=await ghReq(`data/${c}.json`,"PUT",body); GH.sha[c]=j.content.sha; GH.ops[c].splice(0,n); GH.busy[c]=false;
+    if(!ghPending()) setSync("Synced to GitHub, private to you");
+    if(GH.ops[c].length) ghFlush(c);
+  }catch(e){
+    GH.busy[c]=false;
+    if((e.status===409||e.status===422) && tries<4){
+      try{ const remote=await ghLoad(c); GH.ops[c].forEach(op=>applyOp(remote,op)); STORE.data[c]=remote; renderPipeline(); }catch(_){}
+      return ghFlush(c,tries+1);
+    }
+    setSync(e.status===401||e.status===403?"Token refused: check Sync with GitHub":"Not saved yet (offline?). Will retry.");
+    GH.timers[c]=setTimeout(()=>ghFlush(c),15000);
+  }
+}
+async function ghLoadAll(){
+  setSync("Loading from GitHub...");
+  const res=await Promise.all(COLS.map(c=>ghLoad(c)));
+  COLS.forEach((c,i)=>{ const remote=res[i]; GH.ops[c].forEach(op=>applyOp(remote,op)); STORE.data[c]=remote; });
+  saveLocal2(); STORE.mode="gh"; setSync("Synced to GitHub, private to you"); renderPipeline();
+  const chip=$("#ghChip"); if(chip) chip.textContent="Connected";
+}
+async function ghConnect(token){
+  GH.token=token; try{ await ghLoadAll(); return true; }
+  catch(e){ STORE.mode="local"; setSync(e.status===401||e.status===404||e.status===403?"Token cannot open interview-model-data":"Could not reach GitHub; showing the copy on this device"); return false; }
+}
+function newId(col){ return col[0]+Date.now().toString(36)+Math.floor(Math.random()*1296).toString(36); }
+async function sAdd(col,obj){
+  obj.updated = today(); const id=newId(col);
+  STORE.data[col][id]=obj;
+  if(STORE.mode==="gh") ghQueue(col,{t:"set",id,d:obj}); else saveLocal2();
+  renderPipeline(); return id;
+}
+async function sUpdate(col,id,patch){
+  patch.updated = today();
+  STORE.data[col][id] = Object.assign({}, STORE.data[col][id], patch);
+  if(STORE.mode==="gh") ghQueue(col,{t:"patch",id,d:patch}); else saveLocal2();
+  renderPipeline();
+}
+async function sDelete(col,id){
+  delete STORE.data[col][id];
+  if(STORE.mode==="gh") ghQueue(col,{t:"del",id}); else saveLocal2();
+  renderPipeline();
+}
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible" && STORE.mode==="gh" && !ghPending()) ghLoadAll().catch(()=>{}); });
+
+/* ---------- salary plan ---------- */
+function salaryPlan(a){
+  const s = a.salary||{};
+  const pMin=num(s.postedMin), pMax=num(s.postedMax), bLow=num(s.benchLow), bMid=num(s.benchMid), bHigh=num(s.benchHigh), asked=num(s.asked);
+  let anchor=null, floor=null; const flags=[];
+  if(pMin&&pMax){ const p75=pMin+0.75*(pMax-pMin); anchor = bMid ? Math.min(pMax, Math.max(p75,bMid)) : p75; }
+  else if(bMid){ anchor = bHigh ? (bMid+bHigh)/2 : bMid; }
+  if(pMin||bLow) floor = Math.max(pMin||0, bLow||0);
+  if(anchor) anchor=r1k(anchor); if(floor) floor=r1k(floor);
+  if(asked && pMin && pMax && asked < (pMin+pMax)/2) flags.push(["risk","The number you gave sits in the lower half of the posted band. At the offer stage, re-anchor on scope."]);
+  if(asked && anchor && asked >= anchor) flags.push(["good","The number you gave is at or above the target anchor."]);
+  if(pMax && bMid && pMax < bMid) flags.push(["risk","The posted band tops out below the market median. Negotiate title, bonus, flexibility or a six month review, or deprioritize."]);
+  if(pMin && pMax && pMax-pMin>50000) flags.push(["info","The range spans more than $50,000, above Ontario's posting limit for most roles. Ask which level the role is budgeted at."]);
+  if(!pMin && !bMid) flags.push(["info","No posted range or benchmark yet. The morning feed fills the benchmark; add the posted range from the job ad."]);
+  return {pMin,pMax,bLow,bMid,bHigh,asked,anchor,floor,flags,src:s.benchSources||"",note:s.benchNote||"",date:s.benchDate||""};
+}
+function salaryBlock(a){
+  const p = salaryPlan(a);
+  const bar = (p.pMin&&p.pMax) ? (()=>{ const lo=Math.min(p.pMin,p.bLow||p.pMin), hi=Math.max(p.pMax,p.bHigh||p.pMax), w=v=>((v-lo)/(hi-lo||1)*100).toFixed(1);
+      return `<div style="position:relative;height:28px;margin:6px 0" aria-hidden="true">
+        <div style="position:absolute;top:11px;left:0;right:0;height:6px;border-radius:9px;background:var(--line)"></div>
+        <div style="position:absolute;top:11px;left:${w(p.pMin)}%;width:${w(p.pMax)-w(p.pMin)}%;height:6px;border-radius:9px;background:var(--accent)"></div>
+        ${p.bMid?`<div title="Market median" style="position:absolute;top:4px;left:calc(${w(p.bMid)}% - 1px);width:3px;height:20px;background:var(--offer)"></div>`:""}
+        ${p.anchor?`<div title="Your anchor" style="position:absolute;top:6px;left:calc(${w(p.anchor)}% - 8px);width:16px;height:16px;border-radius:50%;background:var(--show);border:2px solid var(--card)"></div>`:""}
+      </div><div class="small muted">Blue: posted band. Orange line: market median. Green dot: your anchor.</div>`; })() : "";
+  return `<div class="card" style="gap:8px">
+    <div class="k">Salary negotiation</div>
+    <div class="row" style="gap:16px">
+      <div class="stat"><span class="k">Posted</span><b style="font-size:18px">${p.pMin?money(p.pMin)+" to "+money(p.pMax):"not set"}</b></div>
+      <div class="stat"><span class="k">You said</span><b style="font-size:18px">${money(p.asked)}</b></div>
+      <div class="stat"><span class="k">Market</span><b style="font-size:18px">${p.bMid?money(p.bLow)+" | "+money(p.bMid)+" | "+money(p.bHigh):"pending"}</b></div>
+    </div>
+    ${bar}
+    <div class="row" style="gap:16px">
+      <div class="stat"><span class="k">Anchor</span><b style="font-size:22px;color:var(--show)">${money(p.anchor)}</b></div>
+      <div class="stat"><span class="k">Walk away below</span><b style="font-size:22px;color:var(--hold)">${money(p.floor)}</b></div>
+    </div>
+    ${p.flags.map(([t,m])=>`<div class="small"><span class="verdict ${t==="risk"?"v-hold":t==="good"?"v-show":"v-offer"}">${t==="risk"?"watch":t==="good"?"good":"note"}</span> ${esc(m)}</div>`).join("")}
+    ${p.anchor?`<details><summary class="small" style="cursor:pointer;font-weight:700">Scripts</summary><ul class="clean small" style="margin-top:8px">
+      <li><b>Screen:</b> "Based on the posted range and the scope of the role, I am targeting around ${money(p.anchor)}, and I am open to looking at total compensation."</li>
+      <li><b>Offer counter:</b> "Thank you, I am excited about this. Based on the scope and market data for this role in Toronto, I was targeting ${money(p.anchor)}. Can we get there?"</li>
+      <li><b>If base is capped:</b> ask for a signing bonus, a six month salary review, an extra week of vacation, RRSP matching, remote days or a title step.</li>
+      <li><b>Silence works:</b> after you say your number, stop talking.</li></ul></details>`:""}
+    ${p.src?`<div class="note">Benchmark ${p.date?"("+esc(p.date)+") ":""}from ${esc(p.src)}${p.note?". "+esc(p.note):""}</div>`:""}
+  </div>`;
+}
+
+/* ---------- signals ---------- */
+function computedSignals(a){
+  const out=[]; const t=today(); const rounds=byApp("rounds",a.id).sort((x,y)=>(y.date||"").localeCompare(x.date||""));
+  if(a.status==="applied" && a.applied && daysBetween(a.applied,t)>21) out.push({impact:"risk", title:"No response for "+daysBetween(a.applied,t)+" days", action:"Send one polite check in, then move it to No response after 10 more days."});
+  const last = rounds[0];
+  if(last && last.outcome==="pending"){
+    const d=daysBetween(last.date,t);
+    if(d>=1 && !last.thanked) out.push({impact:"info", title:"Thank you note due", action:"Send within 24 hours of the "+(SH_STAGES[last.stage]||"interview")+" round."});
+    if(d>45) out.push({impact:"risk", title:"Past the Ontario 45 day notice window", action:"A short, polite check in on next steps is fair."});
+    else if(d>=7) out.push({impact:"info", title:"Nudge window open", action:"Five business days have passed: a brief check in is appropriate."});
+  }
+  if(a.status==="interview" && rounds.some(r=>!r.questions)) out.push({impact:"risk", title:"A round has no debrief", action:"Add the questions you were asked while they are fresh."});
+  if(!a.warm && ACTIVE.includes(a.status)) out.push({impact:"info", title:"No warm path yet", action:"Look for a 1st degree contact or a referral at "+a.company+"."});
+  if((a.jd||"").match(/not (for )?an existing vacancy|not currently vacant|talent pool|future opportunit/i)) out.push({impact:"risk", title:"Posting is not for an existing vacancy", action:"Ontario postings must say this. Lower priority unless you have a warm path."});
+  return out;
+}
+function signalBlock(a){
+  const fed = byApp("signals",a.id).sort((x,y)=>(y.date||"").localeCompare(x.date||"")).slice(0,6);
+  const comp = computedSignals(a);
+  const item = s => `<li><span class="verdict ${s.impact==="risk"?"v-hold":s.impact==="positive"?"v-show":"v-offer"}">${s.impact==="risk"?"risk":s.impact==="positive"?"plus":"note"}</span> <b>${esc(s.title)}</b>${s.date?` <span class="muted small">${fmtDate(s.date)}</span>`:""}${s.summary?`<br><span class="small">${esc(s.summary)}</span>`:""}${s.action?`<br><span class="small"><b>Do:</b> ${esc(s.action)}</span>`:""}${s.url?` <a class="small" href="${esc(s.url)}" target="_blank" rel="noopener">source</a>`:""}</li>`;
+  return `<div class="card" style="gap:8px"><div class="k">Signals and next moves</div>
+    ${comp.length||fed.length?`<ul class="clean">${comp.map(item).join("")}${fed.map(item).join("")}</ul>`:`<p class="small muted">Nothing flagged. The morning feed adds company news, hiring signals and interview intelligence here.</p>`}</div>`;
+}
+
+/* ---------- progress analytics ---------- */
+function renderProgress(){
+  const apps = appsArr(); const rounds = Object.values(STORE.data.rounds); const lessons = Object.values(STORE.data.lessons);
+  const applied = apps.filter(a=>!["target","shortlist"].includes(a.status) && !(a.status==="withdrawn"&&!a.applied));
+  const reached = s => apps.filter(a=>byApp("rounds",a.id).some(r=>r.stage===s)).length;
+  const screens = apps.filter(a=>byApp("rounds",a.id).length>0 || ["screen","interview","offer"].includes(a.status)).length;
+  const hm = reached("hm"), offers = apps.filter(a=>a.status==="offer").length;
+  const pct = (a,b) => b ? Math.round(a/b*100)+"%" : "none";
+  const warm = applied.filter(a=>a.warm), cold = applied.filter(a=>!a.warm);
+  const conv = list => list.length ? Math.round(list.filter(a=>byApp("rounds",a.id).length>0||["screen","interview","offer"].includes(a.status)).length/list.length*100) : null;
+  const lanes = new Set(apps.filter(a=>ACTIVE.includes(a.status)).map(a=>a.lane));
+  const lowfit = applied.filter(a=>num(a.fit) && num(a.fit)<85).length;
+  const gapCount = {}; rounds.forEach(r=>(r.gaps||[]).forEach(g=>gapCount[g]=(gapCount[g]||0)+1)); lessons.forEach(l=>(l.gaps||[]).forEach(g=>gapCount[g]=(gapCount[g]||0)+1));
+  rounds.filter(r=>!r.questions).forEach(()=>gapCount.nodebrief=(gapCount.nodebrief||0)+1);
+  if(lowfit) gapCount.lowfit = Math.max(gapCount.lowfit||0, lowfit);
+  const topGaps = Object.entries(gapCount).filter(([g])=>GAPS[g]).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  const notes = [];
+  if(lanes.size>=4) notes.push(`Active in ${lanes.size} lanes. Recruiters screen for one clear identity, so keep one headline and one resume per lane.`);
+  const wc=conv(warm), cc=conv(cold);
+  if(wc!=null && cc!=null) notes.push(`Warm path conversion to interview: ${wc}%. Cold: ${cc}%.${wc>cc?" Warm paths are working: lead with them.":""}`);
+  else if(warm.length) notes.push(`${warm.length} applications have a warm path. Activate each before the next cold application.`);
+  if(applied.length && screens/applied.length<0.2) notes.push(`Interview rate is ${pct(screens,applied.length)} of applications. The fix sits before the interview: fewer, better targeted applications with a referral.`);
+  const hadInt = a => byApp("rounds",a.id).length>0 || ["screen","interview","offer"].includes(a.status);
+  const laneRows = Object.entries(LANES).map(([k,l])=>{ const ap=applied.filter(a=>a.lane===k); const iv=ap.filter(hadInt).length; return {l,n:ap.length,iv,rate:ap.length?Math.round(iv/ap.length*100):0}; }).filter(r=>r.n).sort((a,b)=>b.rate-a.rate||b.n-a.n);
+  const stopAt = {}; apps.filter(a=>["rejected","ghosted"].includes(a.status)).forEach(a=>{ const r=byApp("rounds",a.id).sort((x,y)=>(y.date||"").localeCompare(x.date||""))[0]; const k=r?r.stage:"none"; stopAt[k]=(stopAt[k]||0)+1; });
+  const stopRows = ["none","hr","hm","panel","case","final"].filter(k=>stopAt[k]).map(k=>`<div class="stat"><span class="k">${k==="none"?"Before any interview":esc(SH_STAGES[k])}</span><b>${stopAt[k]}</b></div>`).join("");
+  $("#pProgress").innerHTML = `<div class="row between"><h3>How you are progressing</h3><span class="small muted">${rounds.length} rounds logged, ${lessons.length} lessons</span></div>
+    ${notes.length?`<ul class="clean">${notes.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>`:""}
+    ${laneRows.length?`<div class="k">Interview rate by lane</div><div class="tablewrap"><table><thead><tr><th>Lane</th><th>Applied</th><th>Got interviews</th><th>Rate</th></tr></thead><tbody>${laneRows.map(r=>`<tr><td>${esc(r.l)}</td><td>${r.n}</td><td>${r.iv}</td><td><div class="row" style="flex-wrap:nowrap"><div class="meter" style="width:70px"><i style="width:${r.rate}%"></i></div><span style="font-variant-numeric:tabular-nums">${r.rate}%</span></div></td></tr>`).join("")}</tbody></table></div>`:""}
+    ${stopRows?`<div class="k">Where closed processes stopped</div><div class="row" style="gap:18px">${stopRows}</div>`:""}
+    <div class="k">Top gaps to fix before the next interview</div>
+    ${topGaps.length?`<div style="display:flex;flex-direction:column;gap:8px">${topGaps.map(([g,n])=>`<div class="stripe hold"><b>${esc(GAPS[g][0])}</b> <span class="muted small">seen ${n}x</span><br><span class="small">${esc(GAPS[g][1])}</span> <button class="btn sm ghost" data-gapgo="${GAPS[g][2]}">Fix it</button></div>`).join("")}</div>`:`<p class="small muted">Tag gaps when you log a round or paste a rejection. Patterns show up here.</p>`}`;
+  $("#pProgress").querySelectorAll("[data-gapgo]").forEach(b=>b.addEventListener("click",()=>{ const t=b.dataset.gapgo; if(t.startsWith("q:")){ location.hash="questions"; setTimeout(()=>{ $("#qSearch").value=""; qStage=Q.find(x=>x.id===t.slice(2)).st; renderQFilter(); renderQ(); },50);} else location.hash=t; }));
+  $("#pSummary").innerHTML = `<div class="row" style="gap:18px">
+    <div class="stat"><span class="k">Active</span><b>${apps.filter(a=>ACTIVE.includes(a.status)).length}</b></div>
+    <div class="stat"><span class="k">Applied</span><b>${applied.length}</b></div>
+    <div class="stat"><span class="k">Got interviews</span><b>${screens}</b><span class="small muted">${pct(screens,applied.length)}</span></div>
+    <div class="stat"><span class="k">Hiring manager</span><b>${hm}</b><span class="small muted">${pct(hm,screens)} of those</span></div>
+    <div class="stat"><span class="k">Offers</span><b>${offers}</b></div></div>`;
+}
+
+/* ---------- pipeline list ---------- */
+function statusChip(s){ const cls = s==="offer"||s==="interview"?"v-show":s==="rejected"||s==="ghosted"||s==="withdrawn"?"v-hold":"v-offer"; return `<span class="verdict ${cls}">${esc(STATUS[s]||s)}</span>`; }
+const IGNORE_REASONS={location:"Location or commute",level:"Level too junior or too senior",salary:"Salary too low",domain:"Domain not for me",fit:"Fit too low",volume:"Too many applicants",company:"Company not for me",closed:"Posting closed",dup:"Duplicate role"};
+function triageBadge(a){
+  if(a.triage==="planned") return `<span class="verdict v-show">Planned${a.planDate?" "+fmtDate(a.planDate):""}</span>`;
+  if(a.triage==="reviewed") return `<span class="verdict v-offer">Done</span>`;
+  if(a.triage==="ignored") return `<span class="verdict v-hold">Ignored</span>`;
+  return "";
+}
+function triageBlock(a){
+  const id=a.id, on=t=>a.triage===t?' aria-pressed="true"':"";
+  return `<div class="card" style="gap:10px" data-tribox="${id}">
+    <div class="k">Decide on this role</div>
+    <div class="row">
+      <button class="btn sm"${on("reviewed")} data-tri="reviewed" data-id="${id}">&#10003; Done</button>
+      <button class="btn sm"${on("planned")} data-tri="planned" data-id="${id}">&#128197; Planned</button>
+      <button class="btn sm ghost"${on("ignored")} data-tri="ignored" data-id="${id}">&#10005; Ignore</button>
+      ${a.triage?`<button class="btn sm ghost" data-tri="reset" data-id="${id}">Undo</button>`:""}
+      <button class="btn sm primary" data-applied="${id}">I applied today</button>
+    </div>
+    <div class="row hidden" data-pane="planned"><label class="small">Apply by<input type="date" data-plandate="${id}" value="${esc(a.planDate||addDays(today(),2))}"></label><button class="btn sm primary" data-plansave="${id}">Save plan</button></div>
+    <div class="hidden" data-pane="ignored" style="display:flex;flex-direction:column;gap:8px"><span class="small">Why? This teaches the morning feed what to skip.</span>
+      <div class="row">${Object.entries(IGNORE_REASONS).map(([k,l])=>`<label class="chip" style="cursor:pointer"><input type="checkbox" data-ignr="${id}" value="${k}" ${(a.ignoreReason||[]).includes(k)?"checked":""}> ${l}</label>`).join("")}</div>
+      <div class="row"><button class="btn sm primary" data-ignsave="${id}">Ignore this role</button></div></div>
+    ${a.triage==="ignored"&&(a.ignoreReason||[]).length?`<span class="small muted">Ignored for: ${a.ignoreReason.map(r=>esc(IGNORE_REASONS[r]||r)).join(", ")}</span>`:""}
+  </div>`;
+}
+function renderPipeline(){
+  if(STORE.mode!=="gh") $("#pMode").textContent = "Saved on this device only";
+  renderProgress();
+  const sl = appsArr().filter(a=>a.status==="shortlist"); const cnt=t=>sl.filter(a=>(a.triage||"")===t).length;
+  const f = [["shortlist",`To review (${cnt("")})`],["planned",`Planned (${cnt("planned")})`],["reviewed",`Done (${cnt("reviewed")})`],["ignored",`Ignored (${cnt("ignored")})`],["active","Active"],["action","Needs action"],["interview","Interviewing"],["closed","Closed"],["all","All"]];
+  $("#pFilter").innerHTML = f.map(([k,l])=>`<button data-f="${k}" aria-pressed="${k===pFilter}">${l}</button>`).join("");
+  $("#pFilter").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{pFilter=b.dataset.f;renderPipeline();}));
+  let list = appsArr();
+  if(pFilter==="active") list=list.filter(a=>ACTIVE.includes(a.status)&&a.status!=="shortlist");
+  if(pFilter==="shortlist") list=list.filter(a=>a.status==="shortlist"&&!a.triage);
+  if(pFilter==="planned") list=list.filter(a=>a.status==="shortlist"&&a.triage==="planned").sort((x,y)=>(x.planDate||"9").localeCompare(y.planDate||"9"));
+  if(pFilter==="reviewed") list=list.filter(a=>a.status==="shortlist"&&a.triage==="reviewed");
+  if(pFilter==="ignored") list=list.filter(a=>a.triage==="ignored");
+  if(pFilter==="all") list=list.filter(a=>a.triage!=="ignored");
+  if(pFilter==="closed") list=list.filter(a=>!ACTIVE.includes(a.status));
+  if(pFilter==="interview") list=list.filter(a=>["screen","interview","offer"].includes(a.status));
+  if(pFilter==="action") list=list.filter(a=>ACTIVE.includes(a.status) && (computedSignals(a).some(s=>s.impact==="risk") || (a.next&&a.next.date&&a.next.date<=today())));
+  const rank = a => (["offer","interview","screen","shortlist","applied","target"].indexOf(a.status)+1||9)*100 - (num(a.fit)||0);
+  if(pFilter!=="planned") list.sort((x,y)=>rank(x)-rank(y));
+  const open = new Set([...document.querySelectorAll("#pList details[open]")].map(d=>d.dataset.id));
+  $("#pList").innerHTML = list.length ? list.map(a=>{
+    const sig = computedSignals(a).filter(s=>s.impact==="risk").length + byApp("signals",a.id).filter(s=>s.impact==="risk").length;
+    const rounds = byApp("rounds",a.id).sort((x,y)=>(x.date||"").localeCompare(y.date||""));
+    return `<details class="q" data-id="${a.id}" ${open.has(a.id)?"open":""}>
+      <summary><div style="flex:1;display:flex;flex-direction:column;gap:4px">
+        <div class="row between"><span class="qt">${esc(a.company)}</span>${statusChip(a.status)}</div>
+        <span class="small">${esc(a.role||"")}</span>
+        <div class="row small muted">${a.lane?`<span class="chip">${esc(LANES[a.lane]||a.lane)}</span>`:""}${num(a.fit)?`<span>Fit ${num(a.fit)}%</span>`:""}${a.warm?`<span>Warm: ${esc(a.warm)}</span>`:""}${sig?`<span class="verdict v-hold">${sig} risk</span>`:""}${a.confirm?`<span class="verdict v-offer">confirm status</span>`:""}${triageBadge(a)}</div>
+        ${a.next&&a.next.text?`<div class="small"><b>Next:</b> ${esc(a.next.text)}${a.next.date?" ("+fmtDate(a.next.date)+")":""}</div>`:""}
+      </div></summary>
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+        <div class="row">
+          <button class="btn sm primary" data-prep="${a.id}">Prepare next step</button>
+          ${a.link?`<a class="btn sm" href="${esc(a.link)}" target="_blank" rel="noopener" style="text-decoration:none">Open job ad</a>`:""}
+          <select class="btn sm" data-status="${a.id}" aria-label="Change status">${Object.entries(STATUS).map(([k,l])=>`<option value="${k}" ${k===a.status?"selected":""}>${l}</option>`).join("")}</select>
+        </div>
+        ${a.purpose?`<p class="small"><b>Job purpose:</b> ${esc(a.purpose)}</p>`:""}
+        ${(a.fitWhy||[]).length||(a.fitGaps||[]).length?`<div class="grid2">
+          ${(a.fitWhy||[]).length?`<div class="card stripe show" style="gap:6px"><div class="k">Why it fits</div><ul class="clean small">${a.fitWhy.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}
+          ${(a.fitGaps||[]).length?`<div class="card stripe hold" style="gap:6px"><div class="k">Gaps and flags</div><ul class="clean small">${a.fitGaps.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}</div>`:""}
+        ${a.status==="shortlist"||a.triage==="ignored"?triageBlock(a):""}
+        ${signalBlock(a)}
+        ${salaryBlock(a)}
+        <details class="card" style="gap:8px"><summary style="cursor:pointer;font-weight:700">Edit salary, link and notes</summary>
+          <div class="grid2" style="margin-top:8px">
+            <label>Posted low<input type="text" inputmode="numeric" data-f="salary.postedMin" value="${esc((a.salary||{}).postedMin||"")}"></label>
+            <label>Posted high<input type="text" inputmode="numeric" data-f="salary.postedMax" value="${esc((a.salary||{}).postedMax||"")}"></label>
+            <label>What you said<input type="text" inputmode="numeric" data-f="salary.asked" value="${esc((a.salary||{}).asked||"")}"></label>
+            <label>Job link<input type="text" data-f="link" value="${esc(a.link||"")}"></label>
+            <label>Warm path<input type="text" data-f="warm" value="${esc(a.warm||"")}"></label>
+            <label>Next step<input type="text" data-f="next.text" value="${esc((a.next||{}).text||"")}"></label>
+            <label>Next step date<input type="date" data-f="next.date" value="${esc((a.next||{}).date||"")}"></label>
+            <label>Fit %<input type="text" inputmode="numeric" data-f="fit" value="${esc(a.fit||"")}"></label>
+            <label class="full" style="grid-column:1/-1">Notes<textarea data-f="notes" style="min-height:70px">${esc(a.notes||"")}</textarea></label>
+          </div>
+          <div class="row"><button class="btn sm primary" data-save="${a.id}">Save changes</button><button class="btn sm ghost" data-del="${a.id}">Delete application</button><span class="status" data-msg="${a.id}"></span></div>
+        </details>
+        <div class="card" style="gap:8px"><div class="k">Rounds</div>
+          ${rounds.length?rounds.map(r=>`<div class="stripe ${r.outcome==="advanced"||r.outcome==="offer"?"show":r.outcome==="declined"?"hold":"offer"}">
+             <div class="row small">${chip(r.stage)}<span>${fmtDate(r.date)}</span>${r.who?`<span class="muted">${esc(r.who)}</span>`:""}<span class="verdict ${r.outcome==="declined"?"v-hold":r.outcome==="pending"?"v-offer":"v-show"}">${esc(OUT_LABEL[r.outcome]||r.outcome)}</span></div>
+             ${r.questions?`<ul class="clean small">${String(r.questions).split("\n").filter(s=>s.trim()).map(s=>`<li>${esc(s)}</li>`).join("")}</ul>`:`<p class="small" style="color:var(--hold)">No questions logged for this round.</p>`}
+             ${r.notes?`<p class="small">${esc(r.notes)}</p>`:""}
+             ${(r.gaps||[]).length?`<div class="row">${r.gaps.map(g=>`<span class="chip">${esc((GAPS[g]||[g])[0])}</span>`).join("")}</div>`:""}
+             <div class="row">${r.outcome==="pending"&&!r.thanked?`<button class="btn sm ghost" data-thank="${r.id}">Thank you sent</button>`:""}${["advanced","declined"].filter(o=>o!==r.outcome).map(o=>`<button class="btn sm ghost" data-rout="${r.id}" data-o="${o}">Mark ${OUT_LABEL[o].toLowerCase()}</button>`).join("")}</div>
+            </div>`).join(""):`<p class="small muted">No interview rounds yet.</p>`}
+          <details><summary class="small" style="cursor:pointer;font-weight:700">Log a round and debrief</summary>
+            <form class="grid2" data-round="${a.id}" style="margin-top:8px">
+              <label>Stage<select name="stage"><option value="hr">HR screen</option><option value="hm">Hiring manager</option><option value="panel">Panel</option><option value="case">Case study</option><option value="final">Final / executive</option></select></label>
+              <label>Date<input type="date" name="date" value="${today()}"></label>
+              <label>Interviewer<input type="text" name="who"></label>
+              <label>Outcome<select name="outcome"><option value="pending">Waiting</option><option value="advanced">Advanced</option><option value="declined">Not selected</option></select></label>
+              <label style="grid-column:1/-1">Questions they asked (one per line)<textarea name="questions" style="min-height:90px"></textarea></label>
+              <label style="grid-column:1/-1">What landed, what to fix<textarea name="notes" style="min-height:70px"></textarea></label>
+              <fieldset style="grid-column:1/-1;border:1px solid var(--line);border-radius:10px"><legend class="small" style="font-weight:700">Gaps you noticed</legend>
+                <div class="row">${Object.entries(GAPS).filter(([k])=>k!=="nodebrief"&&k!=="lowfit"&&k!=="noref").map(([k,v])=>`<label class="chip" style="flex-direction:row;font-weight:600"><input type="checkbox" name="gaps" value="${k}"> ${esc(v[0])}</label>`).join("")}</div></fieldset>
+              <div class="row" style="grid-column:1/-1"><button class="btn sm primary" type="submit">Save round</button></div>
+            </form></details>
+        </div>
+        <div class="card" style="gap:8px"><div class="k">Paste an email: invite, rejection or update</div>
+          <textarea data-email="${a.id}" style="min-height:90px" placeholder="Paste the email text. Rejections become lessons; invites set your next step."></textarea>
+          <div class="row"><button class="btn sm primary" data-read="${a.id}">Read this email</button><span class="status" data-emsg="${a.id}"></span></div>
+          <div data-eout="${a.id}"></div>
+        </div>
+      </div></details>`; }).join("") : `<div class="card"><p class="muted">Nothing here for this filter.</p></div>`;
+  wirePipeline();
+}
+function setPath(obj,path,val){ const k=path.split("."); let o=obj; while(k.length>1){ const p=k.shift(); o[p]=Object.assign({},o[p]||{}); o=o[p]; } o[k[0]]=val; }
+function wirePipeline(){
+  const L=$("#pList");
+  L.querySelectorAll("[data-status]").forEach(s=>s.addEventListener("change",()=>sUpdate("apps",s.dataset.status,{status:s.value, confirm:false}).catch(()=>{})));
+  L.querySelectorAll("[data-save]").forEach(b=>b.addEventListener("click",async()=>{
+    const id=b.dataset.save, a=STORE.data.apps[id]; const patch={salary:Object.assign({},a.salary||{}), next:Object.assign({},a.next||{})};
+    b.closest("details").querySelectorAll("[data-f]").forEach(i=>setPath(patch,i.dataset.f,i.value.trim()));
+    try{ await sUpdate("apps",id,patch); L.querySelector(`[data-msg="${id}"]`).textContent="Saved."; }catch(e){ L.querySelector(`[data-msg="${id}"]`).textContent="Could not save. Try again."; }
+  }));
+  L.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>{ if(b.dataset.armed){ sDelete("apps",b.dataset.del).catch(()=>{}); } else { b.dataset.armed="1"; b.textContent="Tap again to delete"; } }));
+  L.querySelectorAll("form[data-round]").forEach(f=>f.addEventListener("submit",async ev=>{
+    ev.preventDefault(); const fd=new FormData(f); const appId=f.dataset.round;
+    const rec={appId, stage:fd.get("stage"), date:fd.get("date"), who:fd.get("who"), outcome:fd.get("outcome"), questions:fd.get("questions"), notes:fd.get("notes"), gaps:fd.getAll("gaps")};
+    try{ await sAdd("rounds",rec); const st=STORE.data.apps[appId].status; if(["target","applied","screen"].includes(st)) await sUpdate("apps",appId,{status: rec.stage==="hr"?"screen":"interview"}); if(rec.outcome==="declined") await sUpdate("apps",appId,{status:"rejected"}); }catch(e){}
+  }));
+  L.querySelectorAll("[data-thank]").forEach(b=>b.addEventListener("click",()=>sUpdate("rounds",b.dataset.thank,{thanked:true}).catch(()=>{})));
+  L.querySelectorAll("[data-rout]").forEach(b=>b.addEventListener("click",async()=>{ const r=STORE.data.rounds[b.dataset.rout]; try{ await sUpdate("rounds",b.dataset.rout,{outcome:b.dataset.o}); if(b.dataset.o==="declined") await sUpdate("apps",r.appId,{status:"rejected"}); }catch(e){} }));
+  L.querySelectorAll("[data-applied]").forEach(b=>b.addEventListener("click",()=>sUpdate("apps",b.dataset.applied,{status:"applied",applied:today(),next:{text:"Find a warm path at this company within 3 days",date:addDays(today(),3)}}).catch(()=>{})));
+  L.querySelectorAll("[data-tri]").forEach(b=>b.addEventListener("click",()=>{
+    const id=b.dataset.id, t=b.dataset.tri, box=L.querySelector(`[data-tribox="${id}"]`);
+    if(t==="reviewed") sUpdate("apps",id,{triage:"reviewed",triageDate:today()});
+    else if(t==="reset") sUpdate("apps",id,{triage:"",triageDate:"",planDate:"",ignoreReason:[]});
+    else if(t==="planned"||t==="ignored"){ box.querySelectorAll("[data-pane]").forEach(p=>p.classList.toggle("hidden",p.dataset.pane!==t)); }
+  }));
+  L.querySelectorAll("[data-plansave]").forEach(b=>b.addEventListener("click",()=>{
+    const id=b.dataset.plansave, d=L.querySelector(`[data-plandate="${id}"]`).value||addDays(today(),2);
+    const a=STORE.data.apps[id];
+    sUpdate("apps",id,{triage:"planned",triageDate:today(),planDate:d,next:{text:"Apply (planned): tailor the resume and find a warm path",date:d}});
+  }));
+  L.querySelectorAll("[data-ignsave]").forEach(b=>b.addEventListener("click",()=>{
+    const id=b.dataset.ignsave; const reasons=[...L.querySelectorAll(`[data-ignr="${id}"]:checked`)].map(x=>x.value);
+    sUpdate("apps",id,{triage:"ignored",triageDate:today(),ignoreReason:reasons});
+  }));
+  L.querySelectorAll("[data-read]").forEach(b=>b.addEventListener("click",()=>readEmail(b.dataset.read)));
+  L.querySelectorAll("[data-prep]").forEach(b=>b.addEventListener("click",()=>prepNext(b.dataset.prep)));
+}
+function prepNext(id){
+  const a=STORE.data.apps[id]; const rounds=byApp("rounds",id).sort((x,y)=>(y.date||"").localeCompare(x.date||""));
+  const order=["hr","hm","panel","case","final"]; const last=rounds[0]; let next="hr";
+  if(last){ next = last.outcome==="declined" ? last.stage : order[Math.min(order.indexOf(last.stage)+1, order.length-1)]; }
+  shStage=next; renderShowcaseControls(); renderShowcase();
+  $("#jdCompany").value = a.company+": "+(a.role||""); if(a.jd) $("#jdText").value=a.jd;
+  if(a.decode) renderDecode(Object.assign({title:a.company+": "+(a.role||""), source:"ai"}, a.decode));
+  if(next!=="final"){ rStage=next; renderRStage(); nextQ(); }
+  location.hash = a.decode||a.jd ? "decode" : "showcase";
+}
+
+/* ---------- email reader ---------- */
+function classifyOffline(t){
+  const s=t.toLowerCase();
+  if(/unfortunately|not (be )?moving forward|other candidates|decided not to|no longer under consideration|not selected/.test(s)) return {type:"rejection", summary:"Reads as a rejection.", action:"Thank them, ask for one piece of feedback, and ask to be considered for future roles.", gaps:[]};
+  if(/schedule|availability|invite|interview|calendly|book a time/.test(s)) return {type:"interview_invite", summary:"Reads as an interview invitation.", action:"Reply within a few hours with two or three time options, then run Prepare next step.", gaps:[]};
+  if(/offer|compensation package|start date/.test(s)) return {type:"offer", summary:"Reads as an offer.", action:"Thank them, ask for it in writing, and use the salary plan before you answer.", gaps:[]};
+  if(/received your application|thank you for applying|application has been received/.test(s)) return {type:"auto_ack", summary:"An automatic confirmation.", action:"Nothing to do. Look for a warm path in the next 3 days.", gaps:[]};
+  return {type:"other", summary:"Could not classify this one offline.", action:"Read it and set the status yourself.", gaps:[]};
+}
+async function readEmail(id){
+  const box=document.querySelector(`[data-email="${id}"]`), msg=document.querySelector(`[data-emsg="${id}"]`), out=document.querySelector(`[data-eout="${id}"]`);
+  const t=box.value.trim(); if(t.length<30){ msg.textContent="Paste the email text first."; return; }
+  const a=STORE.data.apps[id]; let d;
+  if(SAMPLE){
+    msg.textContent="Reading";
+    const prompt=`You help a job seeker in Ontario, Canada manage applications. Read this email about the ${a.role} role at ${a.company} and return ONLY JSON:
+{"type":"auto_ack|interview_invite|rejection|next_step|offer|other","summary":"one sentence","stage_reached":"none|hr|hm|panel|case|final","reason":"any reason given, or empty","generic":true/false,"reapply":"any reapply window mentioned, or empty","action":"the single best next action","gaps":[zero or more of: numbers, relevance, senior, domain, tools, salary, casework, noref, lowfit] only if the email states or strongly implies them,"reply":"a short reply in plain, warm Canadian English: for a rejection thank them, ask for one piece of feedback and ask to be considered for future roles; for an invite offer times; otherwise empty"}
+Rules: no em dashes or en dashes. Do not invent facts.
+EMAIL:
+"""${t.slice(0,6000)}"""`;
+    try{ try{ d=await SAMPLE.json(prompt,{modelTier:"quick"}); }catch(e){ if(e&&e.code==="not_granted") throw e; const r=await SAMPLE(prompt,{modelTier:"quick"}); d=JSON.parse((r.text.match(/\{[\s\S]*\}/)||["{}"])[0]); } }
+    catch(e){ d=null; }
+  }
+  if(!d||!d.type) d=classifyOffline(t);
+  msg.textContent="";
+  const label={auto_ack:"Automatic confirmation",interview_invite:"Interview invitation",rejection:"Rejection",next_step:"Next step",offer:"Offer",other:"Other"}[d.type]||d.type;
+  out.innerHTML=`<div class="stripe ${d.type==="rejection"?"hold":d.type==="other"?"offer":"show"}" style="display:flex;flex-direction:column;gap:6px">
+    <b>${esc(label)}</b><span class="small">${esc(d.summary||"")}</span>
+    ${d.reason?`<span class="small"><b>Reason given:</b> ${esc(d.reason)}</span>`:""}${d.reapply?`<span class="small"><b>Reapply:</b> ${esc(d.reapply)}</span>`:""}
+    <span class="small"><b>Do:</b> ${esc(d.action||"")}</span>
+    ${d.reply?`<div class="why small" id="rep-${id}">${esc(d.reply)}</div><div class="row"><button class="btn sm" data-copyrep="${id}">Copy reply</button></div>`:""}
+    <div class="row"><button class="btn sm primary" data-apply="${id}">Update the pipeline</button></div></div>`;
+  const cp=out.querySelector("[data-copyrep]"); if(cp) cp.addEventListener("click",()=>navigator.clipboard.writeText(d.reply).then(()=>cp.textContent="Copied",()=>cp.textContent="Select and copy"));
+  out.querySelector("[data-apply]").addEventListener("click",async ev=>{
+    const btn=ev.target; btn.disabled=true;
+    try{
+      if(d.type==="rejection"){
+        await sUpdate("apps",id,{status:"rejected", next:{text:"Send the feedback request; keep the relationship warm", date:today()}});
+        await sAdd("lessons",{appId:id, company:a.company, date:today(), stage:d.stage_reached||"", reason:d.reason||"", generic:!!d.generic, reapply:d.reapply||"", gaps:d.gaps||[], excerpt:t.slice(0,400)});
+      } else if(d.type==="interview_invite"){ await sUpdate("apps",id,{status: a.status==="applied"||a.status==="target"?"screen":a.status, next:{text:"Interview: confirm time, then run Prepare next step", date:today()}}); }
+      else if(d.type==="offer"){ await sUpdate("apps",id,{status:"offer", next:{text:"Review the salary plan, then counter", date:today()}}); }
+      else if(d.type==="auto_ack"){ if(a.status==="target") await sUpdate("apps",id,{status:"applied", applied:today()}); }
+      btn.textContent="Updated";
+    }catch(e){ btn.disabled=false; btn.textContent="Could not update. Try again."; }
+  });
+}
+
+/* ---------- add application ---------- */
+function initAddForm(){
+  $("#paLane").innerHTML = Object.entries(LANES).map(([k,l])=>`<option value="${k}">${l}</option>`).join("");
+  $("#paStatus").innerHTML = Object.entries(STATUS).map(([k,l])=>`<option value="${k}" ${k==="applied"?"selected":""}>${l}</option>`).join("");
+  $("#paDate").value = today();
+  $("#pAdd").addEventListener("submit", async ev=>{
+    ev.preventDefault();
+    const rec={company:$("#paCompany").value.trim(), role:$("#paRole").value.trim(), link:$("#paLink").value.trim(), lane:$("#paLane").value, status:$("#paStatus").value, applied:$("#paDate").value, warm:$("#paWarm").value.trim(), fit:$("#paFit").value.trim(), salary:{postedMin:$("#paMin").value.trim(), postedMax:$("#paMax").value.trim()}, source:"app"};
+    try{ await sAdd("apps",rec); ev.target.reset(); $("#paDate").value=today(); $("#paStatus2").textContent="Saved."; }catch(e){ $("#paStatus2").textContent = e&&e.code==="quota_exceeded"?"Storage is full.":"Could not save. Try again."; }
+  });
+}
+function guessLane(t){ t=t.toLowerCase(); if(/rev(enue)? ?op|sales op|sales programs|forecast/.test(t)) return "revops"; if(/partner|channel|alliance/.test(t)) return "channel"; if(/strateg|consult|market (entry|sensing)|intelligence/.test(t)) return "strategy"; if(/sales manager|business development|account exec|director, sales/.test(t)) return "sales"; if(/analytic|marketing|insight/.test(t)) return "analytics"; return "other"; }
+async function saveDecodeToPipeline(d){
+  const title=$("#jdCompany").value.trim(); const parts=title.split(/:|,| at /); const jd=$("#jdText").value.trim();
+  const range=jd.match(/\$\s?(\d[\d,]{4,})\s*(?:to|-|and)\s*\$?\s?(\d[\d,]{4,})/);
+  const rec={company:(parts[0]||title).replace(/^Example\s*/i,"").trim()||"Company", role:title.slice((parts[0]||"").length).replace(/^[:,\s]+|^at\s+/,"").trim(), link:$("#jdLink").value.trim(), lane:guessLane(title+" "+jd.slice(0,400)), status:"target", fit:d.fit||"", purpose:d.purpose||"", jd:jd.slice(0,20000), decode:{purpose:d.purpose,problems:d.problems,metrics:d.metrics,hidden:d.hidden,stages:d.stages,stories:d.stories,showcase:d.showcase,risks:d.risks,ask:d.ask,fit:d.fit}, salary:range?{postedMin:range[1].replace(/,/g,""),postedMax:range[2].replace(/,/g,"")}:{}, source:"decode"};
+  try{ await sAdd("apps",rec); $("#decodeStatus").textContent="Saved to your pipeline as a target. Change the status once you apply."; }catch(e){ $("#decodeStatus").textContent="Could not save to the pipeline."; }
+}
+
+/* ---------- capabilities ---------- */
+async function initCaps(){
+  const use = (n) => (window.claude && typeof window.claude.use==="function") ? window.claude.use(n).catch(()=>null) : Promise.resolve(null);
+  const [s,d,t,db] = await Promise.all([use("sample"),use("dictation"),use("tts"),use("db")]);
+  SAMPLE=s; DICT=d; TTS=t; DB=db;
+  $("#aiStatus").textContent = SAMPLE ? "Claude connected" : "Quick mode";
+  if(!SAMPLE){ $("#btnDecode").textContent="Decode"; }
+  if(DICT){
+    $("#rMic").classList.remove("hidden");
+    DICT.onFinal(({text})=>{ const a=$("#rAns"); a.value=(a.value?a.value.trimEnd()+" ":"")+text; });
+    DICT.onState(({state})=>{ dictating = state==="listening"; $("#rMic").textContent = dictating ? "Stop speaking" : "Speak answer"; });
+  }
+  const tok=(()=>{ try{ return localStorage.getItem(LSGH)||""; }catch(e){ return ""; } })();
+  if(tok){ ghConnect(tok); } else { setSync("Saved on this device only. Open Sync with GitHub to connect."); $("#ghWrap").open=true; }
+}
+
+/* ---------- boot ---------- */
+buildTabs();
+$("#jdText").value = EXAMPLE_JD;
+renderDecode(EXAMPLE_OUT);
+renderQFilter(); renderQ(); renderCompanies();
+renderS();
+renderShowcaseControls(); renderShowcase();
+renderRStage(); setRehearse("h1");
+initAddForm(); loadLocal2(); renderPipeline();
+$("#btnDecode").addEventListener("click", decodeAI);
+$("#ghSave").addEventListener("click", async()=>{ const t=$("#ghToken").value.trim(); if(!t){ $("#ghMsg").textContent="Paste the token first."; return; } $("#ghMsg").textContent="Connecting..."; const ok=await ghConnect(t); if(ok){ try{ localStorage.setItem(LSGH,t); }catch(e){} $("#ghToken").value=""; $("#ghMsg").textContent="Connected. "+Object.keys(STORE.data.apps).length+" roles loaded."; $("#ghWrap").open=false; } else $("#ghMsg").textContent="That token could not open MG4Trading/interview-model-data."; });
+$("#ghReload").addEventListener("click", ()=>{ if(STORE.mode==="gh") ghLoadAll().then(()=>$("#ghMsg").textContent="Reloaded.").catch(()=>$("#ghMsg").textContent="Could not reload."); else $("#ghMsg").textContent="Connect first."; });
+$("#ghForget").addEventListener("click", ()=>{ try{ localStorage.removeItem(LSGH); }catch(e){} GH.token=""; STORE.mode="local"; $("#ghChip").textContent="Set up"; setSync("Disconnected. Saved on this device only."); $("#ghMsg").textContent="Token removed from this browser."; });
+$("#btnDecodeQuick").addEventListener("click", ()=>{ const jd=$("#jdText").value.trim(); if(jd.length<80){$("#decodeStatus").textContent="Paste the full job description first.";return;} renderDecode(decodeOffline($("#jdCompany").value.trim()||"This role", jd)); $("#decodeStatus").textContent="Quick decode, from keywords in the JD."; });
+$("#qSearch").addEventListener("input", renderQ);
+$("#qMode").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+  const company = b.dataset.mode==="company";
+  $("#qMode").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", String(x===b)));
+  $("#qStageWrap").classList.toggle("hidden", company); $("#qCompanyWrap").classList.toggle("hidden", !company);
+}));
+$("#rNext").addEventListener("click", nextQ);
+$("#rStart").addEventListener("click", toggleTimer);
+$("#rHear").addEventListener("click", ()=>speak(rCurrent.q));
+$("#rMic").addEventListener("click", micClick);
+$("#rCheck").addEventListener("click", ()=>{ const a=$("#rAns").value.trim(); if(a.length<20){$("#rStatus").textContent="Say or type an answer first.";return;} renderQuick(quickCheck(a)); });
+$("#rCoach").addEventListener("click", coach);
+$("#btnFetchAsk").addEventListener("click", ()=>{ const l=$("#jdLink").value.trim(); if(!l){ $("#decodeStatus").textContent="Add the job link first."; return; } const t="Fetch this job ad, decode it and add it to my Interview Model pipeline: "+l; navigator.clipboard.writeText(t).then(()=>{$("#decodeStatus").textContent="Copied. Paste it into your recruiting project chat.";},()=>{$("#decodeStatus").textContent=t;}); });
+window.addEventListener("hashchange", route);
+route();
+initCaps();
+</script>
+</body>
+</html>
