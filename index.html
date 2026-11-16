@@ -1442,6 +1442,57 @@ function renderProgress(){
 
 /* ---------- pipeline list ---------- */
 function statusChip(s){ const cls = s==="offer"||s==="interview"?"v-show":s==="rejected"||s==="ghosted"||s==="withdrawn"?"v-hold":"v-offer"; return `<span class="verdict ${cls}">${esc(STATUS[s]||s)}</span>`; }
+const CLAUDE_PROJECT="https://claude.ai/project/019da0b3-844e-732f-b362-0879fc71f0bf";
+function tailorPrompt(a){
+  const s=a.salary||{}, L=[];
+  L.push(`Tailor my resume for this role, using all my rules in this recruiting project.`);
+  L.push(``);
+  L.push(`ROLE: ${a.role||""}`);
+  L.push(`COMPANY: ${a.company||""}`);
+  if(a.link) L.push(`JOB LINK: ${a.link}`);
+  if(s.postedMin||s.postedMax) L.push(`POSTED SALARY: ${s.postedMin||"?"} to ${s.postedMax||"?"}`);
+  if(a.warm) L.push(`WARM PATH: ${a.warm}`);
+  if(a.fit) L.push(`PIPELINE FIT ESTIMATE: ${a.fit}%`);
+  if(a.purpose) L.push(`JOB PURPOSE: ${a.purpose}`);
+  if((a.fitWhy||[]).length) L.push(`WHY IT FITS:\n- ${a.fitWhy.join("\n- ")}`);
+  if((a.fitGaps||[]).length) L.push(`GAPS AND FLAGS:\n- ${a.fitGaps.join("\n- ")}`);
+  if(a.jd) L.push(`FULL JOB DESCRIPTION:\n${a.jd}`);
+  L.push(``);
+  L.push(`DO THIS:`);
+  L.push(`1. Capture the JD (fetch the link; if it is blocked, ask me to paste it) and pull the keywords.`);
+  L.push(`2. Weighted match score against my verified profile, plus a gap analysis. If below 85%, tell me and ask whether to go ahead.`);
+  L.push(`3. Short company and business unit brief in my standard format (KPIs, products, customers, competition, locations, growth, what it means for me, smart questions).`);
+  L.push(`4. Identify the likely hiring manager and recruiter.`);
+  L.push(`5. Tailored resume as a .docx: two pages, reverse chronological, Vodafone consolidated under one role, figures checked against my master resume, CAD only, no age signals (no graduation years, no pre-2003 roles), no AI signals and no dashes.`);
+  L.push(`6. Short messages: hiring manager email, recruiter email, LinkedIn note.`);
+  L.push(`7. Tell me every reframe, omission or figure correction you made.`);
+  L.push(`8. Update my Interview Model record "${a.id}" in MG4Trading/interview-model-data (data/apps.json): tailor.status "ready", tailor.date, tailor.match, and the hiring manager in warm if found.`);
+  L.push(`Ask me multiple choice questions at decision points.`);
+  return L.join("\n");
+}
+function tailorChip(a){
+  const t=a.tailor||{};
+  if(t.status==="ready") return `<span class="verdict v-show">Resume ready${t.date?" "+fmtDate(t.date):""}</span>`;
+  if(t.status==="requested") return `<span class="verdict v-offer">Resume in Claude${t.date?" "+fmtDate(t.date):""}</span>`;
+  return "";
+}
+function tailorBlock(a){
+  const t=a.tailor||{}, id=a.id, pre=["shortlist","target"].includes(a.status)&&a.triage!=="ignored";
+  const s1=t.status==="ready"?"done":t.status==="requested"?"half":"todo";
+  const dot=(n,st,label)=>`<div style="display:flex;align-items:center;gap:8px"><span style="width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;${st==="done"?"background:#1f7a4d;color:#fff":st==="half"?"background:#f4c95d;color:#222":"border:2px solid var(--line)"}">${st==="done"?"&#10003;":n}</span><b>${label}</b></div>`;
+  return `<div class="card" style="gap:10px" data-tailorbox="${id}">
+    <div class="k">${pre?"Before you apply":"Resume for this role"}</div>
+    <div class="row" style="align-items:center;gap:10px">${dot(1,s1,"Tailor resume")}<span class="muted">&#10132;</span>${dot(2,pre?"todo":"done","Apply")}</div>
+    ${t.match?`<span class="small">Match score from Claude: <b>${esc(t.match)}%</b></span>`:""}
+    <div class="row">
+      <button class="btn sm ${t.status==="ready"?"":"primary"}" data-tailor="${id}">&#9998; ${t.status?"Tailor again":"Tailor resume"}</button>
+      <button class="btn sm ghost" data-tcopy="${id}">Copy prompt only</button>
+      ${t.status!=="ready"?`<button class="btn sm" data-tready="${id}">Mark resume ready</button>`:""}
+    </div>
+    <span class="small muted" data-tmsg="${id}">Opens your recruiting project in Claude with the role, JD and your tailoring rules copied. Paste and send.</span>
+    <textarea class="hidden" data-tbox="${id}" readonly style="min-height:120px;font-size:12px"></textarea>
+  </div>`;
+}
 const IGNORE_REASONS={location:"Location or commute",level:"Level too junior or too senior",salary:"Salary too low",domain:"Domain not for me",fit:"Fit too low",volume:"Too many applicants",company:"Company not for me",closed:"Posting closed",dup:"Duplicate role"};
 function triageBadge(a){
   if(a.triage==="planned") return `<span class="verdict v-show">Planned${a.planDate?" "+fmtDate(a.planDate):""}</span>`;
@@ -1494,7 +1545,7 @@ function renderPipeline(){
       <summary><div style="flex:1;display:flex;flex-direction:column;gap:4px">
         <div class="row between"><span class="qt">${esc(a.company)}</span>${statusChip(a.status)}</div>
         <span class="small">${esc(a.role||"")}</span>
-        <div class="row small muted">${a.lane?`<span class="chip">${esc(LANES[a.lane]||a.lane)}</span>`:""}${num(a.fit)?`<span>Fit ${num(a.fit)}%</span>`:""}${a.warm?`<span>Warm: ${esc(a.warm)}</span>`:""}${sig?`<span class="verdict v-hold">${sig} risk</span>`:""}${a.confirm?`<span class="verdict v-offer">confirm status</span>`:""}${triageBadge(a)}</div>
+        <div class="row small muted">${a.lane?`<span class="chip">${esc(LANES[a.lane]||a.lane)}</span>`:""}${num(a.fit)?`<span>Fit ${num(a.fit)}%</span>`:""}${a.warm?`<span>Warm: ${esc(a.warm)}</span>`:""}${sig?`<span class="verdict v-hold">${sig} risk</span>`:""}${a.confirm?`<span class="verdict v-offer">confirm status</span>`:""}${triageBadge(a)}${tailorChip(a)}</div>
         ${a.next&&a.next.text?`<div class="small"><b>Next:</b> ${esc(a.next.text)}${a.next.date?" ("+fmtDate(a.next.date)+")":""}</div>`:""}
       </div></summary>
       <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
@@ -1507,6 +1558,7 @@ function renderPipeline(){
         ${(a.fitWhy||[]).length||(a.fitGaps||[]).length?`<div class="grid2">
           ${(a.fitWhy||[]).length?`<div class="card stripe show" style="gap:6px"><div class="k">Why it fits</div><ul class="clean small">${a.fitWhy.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}
           ${(a.fitGaps||[]).length?`<div class="card stripe hold" style="gap:6px"><div class="k">Gaps and flags</div><ul class="clean small">${a.fitGaps.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}</div>`:""}
+        ${a.status!=="rejected"&&a.status!=="withdrawn"?tailorBlock(a):""}
         ${a.status==="shortlist"||a.triage==="ignored"?triageBlock(a):""}
         ${signalBlock(a)}
         ${salaryBlock(a)}
@@ -1577,10 +1629,21 @@ function wirePipeline(){
     else if(t==="reset") sUpdate("apps",id,{triage:"",triageDate:"",planDate:"",ignoreReason:[]});
     else if(t==="planned"||t==="ignored"){ box.querySelectorAll("[data-pane]").forEach(p=>p.classList.toggle("hidden",p.dataset.pane!==t)); }
   }));
+  const copyText=(txt,id)=>{ let ok=false; try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt); ok=true; } }catch(e){}
+    const box=L.querySelector(`[data-tbox="${id}"]`); if(box){ box.value=txt; if(!ok){ box.classList.remove("hidden"); box.focus(); box.select(); } }
+    const m=L.querySelector(`[data-tmsg="${id}"]`); if(m) m.textContent= ok ? "Prompt copied. In Claude, paste it into a new chat in your recruiting project and send." : "Copy the prompt below, then paste it in Claude."; return ok; };
+  L.querySelectorAll("[data-tailor]").forEach(b=>b.addEventListener("click",()=>{
+    const id=b.dataset.tailor, a=Object.assign({id},STORE.data.apps[id]);
+    copyText(tailorPrompt(a),id);
+    window.open(CLAUDE_PROJECT,"_blank");
+    sUpdate("apps",id,{tailor:Object.assign({},a.tailor||{},{status:"requested",date:today()})});
+  }));
+  L.querySelectorAll("[data-tcopy]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.tcopy; copyText(tailorPrompt(Object.assign({id},STORE.data.apps[id])),id); }));
+  L.querySelectorAll("[data-tready]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.tready, a=STORE.data.apps[id]; sUpdate("apps",id,{tailor:Object.assign({},a.tailor||{},{status:"ready",date:today()})}); }));
   L.querySelectorAll("[data-plansave]").forEach(b=>b.addEventListener("click",()=>{
     const id=b.dataset.plansave, d=L.querySelector(`[data-plandate="${id}"]`).value||addDays(today(),2);
     const a=STORE.data.apps[id];
-    sUpdate("apps",id,{triage:"planned",triageDate:today(),planDate:d,next:{text:"Apply (planned): tailor the resume and find a warm path",date:d}});
+    sUpdate("apps",id,{triage:"planned",triageDate:today(),planDate:d,next:{text:"Planned: tailor the resume in Claude, then apply",date:d}});
   }));
   L.querySelectorAll("[data-ignsave]").forEach(b=>b.addEventListener("click",()=>{
     const id=b.dataset.ignsave; const reasons=[...L.querySelectorAll(`[data-ignr="${id}"]:checked`)].map(x=>x.value);
