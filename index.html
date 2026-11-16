@@ -949,6 +949,7 @@ function renderQ(){
        <div><div class="k">What scores well</div><p>${esc(x.look)}</p></div>
        <div><div class="k">Answer structure</div><p>${esc(x.how)}</p></div>
        <div class="trap full"><div class="k">Trap</div>${esc(x.trap)}</div>
+       ${packBlock(x,true)}
        <div class="full row">${x.stories.map(id=>{const s=storyById(id);return s?`<button class="story-pill" data-story="${id}">${esc(s.title)}</button>`:"";}).join("")}
          ${x.show?`<span class="chip">Showcase: ${esc(ASSETS[x.show].name)}</span>`:""}
          <button class="btn sm ghost" data-practise="${x.id}">Practise this</button></div>
@@ -956,7 +957,7 @@ function renderQ(){
    </details>`).join("") : `<p class="muted">No questions match. Try a shorter word.</p>`;
   const fa=focusApp(); const pack=fa&&COMPANIES.find(c=>c.src.length&&fa.company.toLowerCase().includes(c.name.toLowerCase().split(" ")[0]));
   if(pack&&qStage==="all"&&!term) $("#qList").insertAdjacentHTML("afterbegin",`<div class="card"><div class="k">What candidates report at ${esc(pack.name)}</div><ol class="clean small">${pack.flow.map(f=>`<li>${esc(f)}</li>`).join("")}</ol><ul class="clean small">${pack.asked.map(f=>`<li>${esc(f)}</li>`).join("")}</ul><div class="why small">${pack.tips.map(esc).join(" ")}</div></div>`);
-  wireStoryPills($("#qList"));
+  wireStoryPills($("#qList")); wireHear($("#qList"));
   $("#qList").querySelectorAll("[data-practise]").forEach(b=>b.addEventListener("click",()=>{ setRehearse(b.dataset.practise); location.hash="rehearse"; }));
 }
 function renderCompanies(){
@@ -1058,6 +1059,7 @@ function renderS(){
         <div class="sbig"><b>${esc(p.big||"")}</b><span>${esc(p.sub||"")}</span></div>
       </div>
       <p class="hook">"${esc(s.hook)}"</p>
+      ${(()=>{ const P=pack(), v=P&&P.stories&&P.stories[s.id]; return v?`<div class="why small" style="border-left:4px solid var(--accent)"><b>For ${esc(P.company)}${v.rank?" (#"+esc(v.rank)+")":""}:</b> ${esc(v.angle||"")} ${v.bridge?`<i>${esc(v.bridge)}</i>`:""}</div>`:""; })()}
       <div class="star">
         ${[["S","Situation",s.S],["T","Task",s.T],["A","Action",s.A],["R","Result",s.R]].map(([k,l,t])=>`<div class="sstep s-${k}"><div class="sk">${k}<small>${l}</small></div><div class="st">${esc(t)}</div></div>`).join("")}
       </div>
@@ -1108,13 +1110,16 @@ function renderShowcase(){
   const order = ["show","offer","hold"];
   const keys = Object.keys(r).sort((a,b)=>order.indexOf(r[a].verdict)-order.indexOf(r[b].verdict));
   const fa=focusApp();
-  const pre = fa ? `<div class="card flat small"><b>For ${esc(fa.company)}</b>, stage set from your pipeline status (${esc(STATUS[fa.status]||fa.status)}). Build the 30/60/90 plan around: ${esc(fa.purpose||fa.role||"")}. Lead case write-up: ${esc((STORIES.find(s=>s._top)||{}).title||"your strongest match")}.</div>` : "";
-  $("#shOut").innerHTML = pre + keys.map(k=>`
+  const pre = fa ? `<div class="card flat small"><span><b>For ${esc(fa.company)}:</b> stage set from your pipeline status (${esc(STATUS[fa.status]||fa.status)}). Build the 30/60/90 plan around: ${esc(String(fa.purpose||fa.role||"").replace(/\.+$/,""))}. Lead case write-up: ${esc((STORIES.find(s=>s._top)||{}).title||"your strongest match")}.</span></div>` : "";
+  const P=pack(), pl=P&&P.showcase&&P.showcase.plan;
+  const planT = pl ? `<div class="card" style="gap:8px"><div class="k">Your 30/60/90 plan for ${esc(P.company)}</div><div style="overflow-x:auto"><table class="small" style="border-collapse:collapse;width:100%"><tr><th></th>${["30 days","60 days","90 days"].map((h,i)=>`<th style="text-align:left;padding:6px;background:${["var(--hr)","var(--hm)","var(--case)"][i]};color:#fff">${h}</th>`).join("")}</tr>${[["Focus","focus"],["Priorities","priorities"],["Tasks","tasks"],["Success measures","measures"]].map(([l,k])=>`<tr><th style="text-align:left;padding:6px;vertical-align:top">${l}</th>${[0,1,2].map(i=>`<td style="padding:6px;vertical-align:top;border-top:1px solid var(--line)">${esc((pl[k]||[])[i]||"")}</td>`).join("")}</tr>`).join("")}</table></div></div>` : "";
+  $("#shOut").innerHTML = pre + planT + keys.map(k=>`
    <div class="card stripe ${r[k].verdict}">
      <div class="row between"><h3>${esc(ASSETS[k].name)}</h3><span class="verdict v-${r[k].verdict}">${r[k].verdict}</span></div>
      <div class="small muted">${esc(ASSETS[k].what)}</div>
      <div><span class="k">When</span> ${esc(r[k].when)}</div>
      <p class="small">${esc(r[k].why)}</p>
+     ${P&&P.showcase&&P.showcase.notes&&P.showcase.notes[k]?`<p class="small"><b>For ${esc(P.company)}:</b> ${esc(P.showcase.notes[k])}</p>`:""}
    </div>`).join("");
 }
 
@@ -1180,15 +1185,39 @@ function roleQuestions(a, sc){
   out.push({id:"r_ask",st:"hm",role:true,q:"What questions do you have for me?",why:"Your questions show how you think and whether you understood the role.",look: ask.length?ask.join(" | "):`Ask about the first 90 day priority, what success looks like in a year, and where ${co}'s ${sc.themes[0]?sc.themes[0][0]:"team"} process breaks today.`,how:"Two or three questions about their problems, never about benefits in the first round.",trap:"Saying you have no questions.",stories:[],tags:["close"]});
   return out;
 }
+const PACKS={};
+const pack=()=>FOCUS&&PACKS[FOCUS]&&PACKS[FOCUS].st==="ok"?PACKS[FOCUS].d:null;
+async function loadPack(id){
+  if(STORE.mode!=="gh"){ PACKS[id]={st:"none"}; return; }
+  PACKS[id]={st:"loading"};
+  try{ const j=await ghReq(`data/prep/${id}.json`); PACKS[id]={st:"ok",d:JSON.parse(b64dec(j.content))}; }
+  catch(e){ PACKS[id]={st:e.status===404?"none":"err"}; }
+  if(FOCUS===id){ FOCUS_DONE=""; applyFocus(); }
+}
+function packBlock(q,open){
+  const p=pack(); const a=p&&p.answers&&p.answers[q.id]; if(!a) return "";
+  return `<div class="full card" style="gap:8px;border:2px solid var(--accent)"><div class="k">Outstanding answers for ${esc(p.company)}</div>
+   ${a.why?`<div class="why small"><b>Why ${esc(p.company)} asks:</b> ${esc(a.why)}</div>`:""}
+   ${(a.answers||[]).map((x,i)=>`<details ${open&&i===1?"open":""} style="border-left:4px solid ${["var(--hr)","var(--hm)","var(--case)"][i]};padding-left:8px"><summary class="small"><b>${"ABC"[i]}. ${esc(x.label||["Short","Full","Stand-out"][i])}</b></summary><p class="small" style="white-space:pre-wrap;margin:6px 0">${esc(x.text)}</p><button class="btn sm ghost" data-hear="${esc(q.id)}" data-hi="${i}">&#128264; Hear it</button></details>`).join("")}
+   ${(a.solution||[]).length?`<div><div class="k">Solution</div><ol class="clean small">${a.solution.map(t=>`<li>${esc(t)}</li>`).join("")}</ol></div>`:""}
+  </div>`;
+}
+function wireHear(root){ root.querySelectorAll("[data-hear]").forEach(b=>b.addEventListener("click",e=>{ e.preventDefault(); const p=pack(); const a=p&&p.answers[b.dataset.hear]; if(a&&a.answers[+b.dataset.hi]) speak(a.answers[+b.dataset.hi].text); })); }
+function packPrompt(a){
+  return `Build the interview prep pack for my Interview Model record "${a.id}" (${a.role} at ${a.company}).\n\nUse the Composio GitHub toolkit on the private repo MG4Trading/interview-model-data: read data/apps.json (record "${a.id}") and data/profile.json (my verified stories, the 34 library questions, my rules and packSpec). Follow packSpec exactly: research the company and role first, then write data/prep/${a.id}.json with 3 outstanding answers for every question, role-specific questions, story angles and a tailored 30/60/90 showcase plan, all using only my verified facts. Then set prep {status:"ready", date} on the record. Tell me the 3 themes and the biggest risk when done.`;
+}
 function applyFocus(){
   const a=focusApp();
   if(!a){ Q.splice(0,Q.length,...Q_BASE); STORIES.splice(0,STORIES.length,...S_BASE); S_BASE.forEach(s=>{delete s._top;}); FOCUS_DONE=""; }
   else{
-    const sc=focusScores(a), rq=roleQuestions(a,sc);
+    if(!PACKS[a.id]) loadPack(a.id);
+    const P=pack();
+    const sc=focusScores(a), rq=(P&&(P.roleQuestions||[]).length)? P.roleQuestions.map(x=>({id:x.id,st:x.st||"hm",q:x.q,why:x.why||"",look:"See the three answers below.",how:"",trap:x.trap||"",stories:(x.stories||[]).filter(id=>storyById(id)),tags:[],role:true})) : roleQuestions(a,sc);
+    if(P&&P.stories) Object.entries(P.stories).forEach(([id,v])=>{ sc.ss[id]=(sc.ss[id]||0)+100-(+v.rank||9); });
     const qs=Q_BASE.slice().sort((x,y)=>(sc.qs[y.id]||0)-(sc.qs[x.id]||0));
     Q.splice(0,Q.length,...rq,...qs);
     const st=S_BASE.slice().sort((x,y)=>(x.gap?1:0)-(y.gap?1:0)||(sc.ss[y.id]||0)-(sc.ss[x.id]||0));
-    st.forEach((s,i)=>{ s._top = !s.gap && i<5 && (sc.ss[s.id]||0)>0; });
+    st.forEach((s,i)=>{ s._top = !s.gap && (P&&P.stories ? !!P.stories[s.id] : (i<5 && (sc.ss[s.id]||0)>0)); });
     STORIES.splice(0,STORIES.length,...st);
     shStage = a.status==="interview" ? ((byApp("rounds",a.id).some(r=>r.stage==="hm"))?"panel":"hm") : a.status==="offer" ? "final" : "hr";
     const t=roleText(a); shSig=new Set();
@@ -1198,7 +1227,7 @@ function applyFocus(){
     if(/consult|client.facing/.test(t)) shSig.add("consult");
     if(/channel|partner/.test(t)) shSig.add("channel");
     if(/director|vice president|\bvp\b|head of/.test((a.role||"").toLowerCase())) shSig.add("exec");
-    FOCUS_DONE=FOCUS+"|"+(a.updated||"");
+    FOCUS_DONE=FOCUS+"|"+(a.updated||"")+"|"+((PACKS[a.id]||{}).st||"");
   }
   sSel=null; qStage="all"; rStage="all";
   renderQFilter(); renderQ(); renderS(); renderShowcaseControls(); renderShowcase(); renderRStage(); setRehearse(Q[0].id); renderFocusBars();
@@ -1217,15 +1246,21 @@ function renderFocusBars(){
     info=`<div class="small"><b>${esc(a.company)}</b>: ${esc(a.purpose||a.role||"")}</div>
       <div class="row" style="gap:6px">${sc.themes.slice(0,4).map(([l])=>`<span class="chip">${esc(l)}</span>`).join("")}</div>
       <div class="row" style="gap:6px;align-items:center"><span class="k">Lead stories</span>${tops.map(s=>`<span class="mini" title="${esc(s.title)}">${icon(s.id,18)}</span>`).join("")}<span class="small muted">${nRole} role questions, ${nGap} gap probe${nGap===1?"":"s"}</span></div>`;
+    const ps=(PACKS[a.id]||{}).st, P=pack(), req=a.prep&&a.prep.status==="requested";
+    info+= ps==="ok" ? `<div class="row" style="gap:8px;align-items:center"><span class="verdict v-show">Prep pack ready${P.built?" "+esc(fmtDate(P.built)):""}</span><span class="small">${Object.keys(P.answers||{}).length} questions with 3 answers each</span><button class="btn sm ghost" data-packreq="1">Rebuild</button></div>${P.brief?`<div class="small" style="white-space:pre-wrap">${esc(P.brief)}</div>`:""}`
+      : ps==="loading" ? `<span class="small muted">Loading prep pack...</span>`
+      : `<div class="row" style="gap:8px;align-items:center">${req?`<span class="verdict v-offer">Pack queued ${esc(fmtDate(a.prep.date))}: ready after the next feed run (6:47 am or 4:47 pm)</span>`:`<span class="small"><b>No prep pack yet.</b> It adds 3 outstanding answers to every question, story angles and a tailored showcase plan.</span><button class="btn sm primary" data-packreq="1">Build prep pack</button>`}<button class="btn sm" data-packnow="1">Build now in Claude</button></div>`;
   } else info=`<span class="small muted">Pick a role you applied for: every question, story, showcase verdict and practice round will focus on it.</span>`;
   document.querySelectorAll("[data-focusbar]").forEach(el=>{
     el.innerHTML=`<span class="fk">Prepping for</span><select aria-label="Role you are preparing for">${opts}</select>${info}`;
+    el.querySelectorAll("[data-packreq]").forEach(b=>b.addEventListener("click",()=>{ const x=focusApp(); if(x) sUpdate("apps",x.id,{prep:{status:"requested",date:today()}}); }));
+    el.querySelectorAll("[data-packnow]").forEach(b=>b.addEventListener("click",()=>{ const x=focusApp(); if(!x) return; try{ navigator.clipboard.writeText(packPrompt(x)); }catch(e){} window.open(CLAUDE_PROJECT,"_blank"); sUpdate("apps",x.id,{prep:{status:"requested",date:today()}}); }));
     el.querySelector("select").addEventListener("change",ev=>{ FOCUS=ev.target.value; try{ localStorage.setItem(LSF,FOCUS); }catch(e){} applyFocus(); });
   });
 }
 function focusSync(){
   const a=focusApp();
-  if(a && FOCUS_DONE!==FOCUS+"|"+(a.updated||"")) applyFocus(); else renderFocusBars();
+  if(a && FOCUS_DONE!==FOCUS+"|"+(a.updated||"")+"|"+((PACKS[a.id]||{}).st||"")) applyFocus(); else renderFocusBars();
 }
 
 /* ---------- REHEARSE ---------- */
@@ -1240,6 +1275,7 @@ function setRehearse(id){
   $("#rQ").innerHTML = `${chip(q.st)} ${esc(q.q)}`;
   $("#rWhy").textContent = "Why they ask: "+q.why;
   $("#rAns").value=""; $("#rOut").innerHTML=""; resetTimer();
+  const m=$("#rModel"); if(m){ const blk=packBlock(q,false); m.innerHTML = blk ? `<details class="card"><summary><b>Show the 3 model answers</b> <span class="small muted">(say yours first, then shadow one out loud)</span></summary>${blk}</details>` : ""; wireHear(m); }
 }
 function nextQ(){
   const base = focusApp() ? Q.filter(x=>x.role).concat(Q.filter(x=>!x.role).slice(0,10)) : Q;
@@ -1891,6 +1927,7 @@ renderShowcaseControls(); renderShowcase();
 renderRStage(); setRehearse("h1");
 ["v-questions","v-stories","v-showcase","v-rehearse"].forEach(id=>{ const h=document.querySelector("#"+id+" h2"); if(h) h.insertAdjacentHTML("afterend",'<div class="focusbar" data-focusbar></div>'); });
 { const _rp=renderPipeline; renderPipeline=function(){ _rp(); try{ focusSync(); }catch(e){} }; }
+$("#rOut").insertAdjacentHTML("afterend",'<div id="rModel"></div>');
 initAddForm(); loadLocal2(); renderPipeline();
 $("#btnDecode").addEventListener("click", decodeAI);
 $("#ghSave").addEventListener("click", async()=>{ const t=$("#ghToken").value.trim(); if(!t){ $("#ghMsg").textContent="Paste the token first."; return; } $("#ghMsg").textContent="Connecting..."; const ok=await ghConnect(t); if(ok){ try{ localStorage.setItem(LSGH,t); }catch(e){} $("#ghToken").value=""; $("#ghMsg").textContent="Connected. "+Object.keys(STORE.data.apps).length+" roles loaded."; $("#ghWrap").open=false; } else $("#ghMsg").textContent="That token could not open MG4Trading/interview-model-data."; });
