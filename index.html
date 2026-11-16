@@ -186,6 +186,10 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .qdot{color:#0f141b}}
 .hidden{display:none !important}
 @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+.focusbar{display:flex;flex-direction:column;gap:8px;border:2px solid var(--accent);border-radius:var(--r);padding:12px;background:var(--accent-soft)}
+.focusbar select{font-size:16px;font-weight:700;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);width:100%}
+.focusbar .fk{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.rolechip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;background:var(--accent);color:#fff}
 </style>
 </head>
 <body>
@@ -939,7 +943,7 @@ function renderQ(){
   const list = Q.filter(x => (qStage==="all"||x.st===qStage) && (!term || (x.q+x.why+x.how+x.tags.join(" ")).toLowerCase().includes(term)));
   $("#qList").innerHTML = list.length ? list.map(x => `
    <details class="q">
-     <summary>${chip(x.st)}<span class="qt">${esc(x.q)}</span></summary>
+     <summary>${chip(x.st)}${x.role?`<span class="rolechip">This role</span>`:""}<span class="qt">${esc(x.q)}</span></summary>
      <div class="qbody">
        <div class="why full"><div class="k">Why they ask</div>${esc(x.why)}</div>
        <div><div class="k">What scores well</div><p>${esc(x.look)}</p></div>
@@ -950,6 +954,8 @@ function renderQ(){
          <button class="btn sm ghost" data-practise="${x.id}">Practise this</button></div>
      </div>
    </details>`).join("") : `<p class="muted">No questions match. Try a shorter word.</p>`;
+  const fa=focusApp(); const pack=fa&&COMPANIES.find(c=>c.src.length&&fa.company.toLowerCase().includes(c.name.toLowerCase().split(" ")[0]));
+  if(pack&&qStage==="all"&&!term) $("#qList").insertAdjacentHTML("afterbegin",`<div class="card"><div class="k">What candidates report at ${esc(pack.name)}</div><ol class="clean small">${pack.flow.map(f=>`<li>${esc(f)}</li>`).join("")}</ol><ul class="clean small">${pack.asked.map(f=>`<li>${esc(f)}</li>`).join("")}</ul><div class="why small">${pack.tips.map(esc).join(" ")}</div></div>`);
   wireStoryPills($("#qList"));
   $("#qList").querySelectorAll("[data-practise]").forEach(b=>b.addEventListener("click",()=>{ setRehearse(b.dataset.practise); location.hash="rehearse"; }));
 }
@@ -1017,7 +1023,7 @@ function renderS(){
     return `<div class="lane" style="--c:${STAGE_VAR[st]}">
       <div class="lane-h"><span>${esc(label)}</span><b>${qs.length}</b></div>
       ${qs.map(q=>`<button class="qchip ${sSel===q.id?"on":""}" data-q="${q.id}" aria-pressed="${sSel===q.id}">
-        <span class="qn">${qNum(q)}</span><span class="qt2">${esc(q.q)}</span>
+        <span class="qn">${qNum(q)}</span><span class="qt2">${q.role?"&#9733; ":""}${esc(q.q)}</span>
         <span class="qi">${q.stories.map(id=>`<span class="mini" title="${esc((storyById(id)||{}).title||"")}">${icon(id,14)}</span>`).join("")}</span>
       </button>`).join("")}
     </div>`;}).join("");
@@ -1048,7 +1054,7 @@ function renderS(){
     return `<div class="card scard ${dim?"dim":""} ${s.gap?"stripe offer":""}" id="story-${s.id}">
       <div class="shead">
         <div class="sicon">${icon(s.id,30)}</div>
-        <div style="flex:1;min-width:0"><h3>${esc(s.title)}</h3><div class="small muted">${esc(s.where)}</div></div>
+        <div style="flex:1;min-width:0">${s._top?`<span class="rolechip">Lead with this for ${esc((focusApp()||{}).company||"")}</span>`:""}<h3>${esc(s.title)}</h3><div class="small muted">${esc(s.where)}</div></div>
         <div class="sbig"><b>${esc(p.big||"")}</b><span>${esc(p.sub||"")}</span></div>
       </div>
       <p class="hook">"${esc(s.hook)}"</p>
@@ -1101,13 +1107,125 @@ function renderShowcase(){
   const r = showcase(shStage, shMins, [...shSig]);
   const order = ["show","offer","hold"];
   const keys = Object.keys(r).sort((a,b)=>order.indexOf(r[a].verdict)-order.indexOf(r[b].verdict));
-  $("#shOut").innerHTML = keys.map(k=>`
+  const fa=focusApp();
+  const pre = fa ? `<div class="card flat small"><b>For ${esc(fa.company)}</b>, stage set from your pipeline status (${esc(STATUS[fa.status]||fa.status)}). Build the 30/60/90 plan around: ${esc(fa.purpose||fa.role||"")}. Lead case write-up: ${esc((STORIES.find(s=>s._top)||{}).title||"your strongest match")}.</div>` : "";
+  $("#shOut").innerHTML = pre + keys.map(k=>`
    <div class="card stripe ${r[k].verdict}">
      <div class="row between"><h3>${esc(ASSETS[k].name)}</h3><span class="verdict v-${r[k].verdict}">${r[k].verdict}</span></div>
      <div class="small muted">${esc(ASSETS[k].what)}</div>
      <div><span class="k">When</span> ${esc(r[k].when)}</div>
      <p class="small">${esc(r[k].why)}</p>
    </div>`).join("");
+}
+
+/* ---------- PREP FOCUS: tailor questions, stories, showcase and rehearse to one role ---------- */
+const LSF="im_focus";
+let FOCUS=(()=>{ try{ return localStorage.getItem(LSF)||""; }catch(e){ return ""; } })();
+let FOCUS_DONE="";
+const Q_BASE=Q.slice(), S_BASE=STORIES.slice();
+const THEMES=[
+ [/forecast|quota|territor|capacity|annual plan|target setting|planning/, ["geo","dash"], ["m2","m6","c1","c3"], "forecast and quota planning"],
+ [/compensation|incentive|commission|\bicm\b|payout|\bspiff/, ["comp"], ["m7"], "incentive compensation"],
+ [/crm|salesforce|hubspot|data hygiene|data quality|adoption|tech stack|systems/, ["crm","ai"], ["m8"], "CRM and systems"],
+ [/dashboard|report|kpi|analytic|insight|metric|scorecard|visibility/, ["dash","ai","total"], ["m5","c6","p4"], "reporting and analytics"],
+ [/channel|partner|reseller|dealer|alliance|distribution|indirect|carrier/, ["partner","pos"], ["c5"], "channel and partners"],
+ [/pipeline|acquisition|new business|hunter|prospect|lead gen|funnel|conversion/, ["huntfarm","cash"], ["c4"], "pipeline and acquisition"],
+ [/payment|fintech|transaction|card|banking|lending|mortgage/, ["cash"], [], "payments and fintech"],
+ [/insurance|broker|claims|underwrit/, ["axa"], [], "insurance"],
+ [/\bai\b|automation|agentic|agents|machine learning|genai/, ["ai"], ["p7"], "AI and automation"],
+ [/pricing|revenue growth|promotion|cpg|assortment|value management|arpu|tariff|margin/, ["rust","pos"], [], "pricing and revenue growth"],
+ [/market entry|expansion|international|new market|launch|go.to.market|\bgtm\b/, ["siwa","cash","pos"], ["c2"], "go to market and expansion"],
+ [/enablement|training|onboarding|coaching|playbook|ramp/, ["crm","huntfarm"], [], "enablement and coaching"],
+ [/strategy|business case|consult|transformation|business performance/, ["siwa","total","rust"], ["c2","p5"], "strategy and business cases"],
+ [/telecom|wireless|mobile|rogers|bell|telus|subscriber/, ["pos","cash","partner"], [], "telecom"],
+ [/stakeholder|cross.functional|influence|executive|c-suite|cro/, ["crm","comp"], ["p3","p5","m4","m9"], "stakeholders and influence"],
+ [/direct reports|manage a team|people leader|lead a team|leading a team|managing/, ["huntfarm","camp"], ["p3"], "people leadership"],
+ [/operating rhythm|cadence|\bmbr|\bqbr|business review|operating model/, ["dash"], ["m3","m5"], "operating rhythm"]
+];
+const STORY_KEYS={geo:["forecast","capacity","quota","#1 share","87%"],huntfarm:["hunters","farmers","pipeline"],dash:["dashboard","kpi","attainment"],partner:["partner exit","due diligence","c$20m"],comp:["commission","incentive","c$400k"],crm:["crm","adoption"],cash:["vodafone cash","payments","transactions"],pos:["points of sale","partner network","15,000"],axa:["axa","insurance"],ai:["ai assisted","hubspot","analysis time"],rust:["rusticano","pricing"],siwa:["siwa","market entry"],total:["totalenergies","cx study"],camp:["campaign"],uth:["u-thentic","e-commerce"]};
+const LANE_STORIES={revops:["geo","dash","comp","crm"],channel:["partner","pos"],strategy:["siwa","total"],sales:["huntfarm","pos"],analytics:["dash","total","ai"]};
+const focusApp=()=>FOCUS&&STORE.data.apps[FOCUS]?Object.assign({id:FOCUS},STORE.data.apps[FOCUS]):null;
+function roleText(a){ return [a.role,a.purpose,a.jd,(a.fitWhy||[]).join(" "),(a.fitGaps||[]).join(" "),a.decode?JSON.stringify(a.decode):"",a.lane].join(" ").toLowerCase(); }
+function focusScores(a){
+  const t=roleText(a), why=(a.fitWhy||[]).join(" ").toLowerCase(), ss={}, qs={}, themes=[];
+  THEMES.forEach(([re,st,qq,label])=>{ const m=t.match(new RegExp(re.source,"g")); if(!m) return; const w=Math.min(m.length,4); themes.push([label,m.length]); st.forEach(id=>ss[id]=(ss[id]||0)+w); qq.forEach(id=>qs[id]=(qs[id]||0)+w); });
+  Object.entries(STORY_KEYS).forEach(([id,ks])=>{ if(ks.some(k=>why.includes(k))) ss[id]=(ss[id]||0)+4; });
+  (LANE_STORIES[a.lane]||[]).forEach(id=>ss[id]=(ss[id]||0)+2);
+  Q_BASE.forEach(q=>{ q.stories.forEach(id=>{ if(ss[id]) qs[q.id]=(qs[q.id]||0)+ss[id]/4; }); });
+  ["h1","h2","h3","h7","m1","m10","m11"].forEach(id=>qs[id]=(qs[id]||0)+3);
+  themes.sort((x,y)=>y[1]-x[1]);
+  return {ss,qs,themes};
+}
+function gapQuestion(g){
+  let m;
+  if((m=g.match(/^no (.+?)(?:[;:,].*)?$/i))) return `We do not see ${m[1].replace(/\s+(employer|on record|experience|background)\b.*$/i,"")} in your background. How would you get up to speed here?`;
+  if((m=g.match(/^(?:jd |role |posting )?(?:asks for|requires|needs|wants) (.+?)(?:[;:].*)?$/i))) return `This role needs ${m[1]}. Walk me through your experience with that.`;
+  if((m=g.match(/^(.+?) not (?:on record|shown|evidenced|documented)/i))) return `Tell me about your experience with ${m[1]}.`;
+  return null;
+}
+function roleQuestions(a, sc){
+  const co=a.company, top=Object.entries(sc.ss).sort((x,y)=>y[1]-x[1]).map(x=>x[0]).filter(id=>id!=="fail"), out=[];
+  const T=(n)=>top.slice(0,n);
+  const proof=(a.fitWhy||[]).filter(x=>!/^Meets/.test(x));
+  out.push({id:"r_why",st:"hr",role:true,q:`Why ${co}, and why this role?`,why:`The recruiter checks you chose ${co} on purpose and can link this role to your record.`,look:`One specific fact about ${co}${a.purpose?" ("+a.purpose.slice(0,110)+")":""}, then your closest proof: ${proof[0]||"your best matching result"}.`,how:"Them (what they are trying to do), the role (the problem it solves), you (one result that proves you can).",trap:"Generic praise for the brand, or talking about what you want before what they need.",stories:T(2),tags:["motivation"]});
+  const sig=byApp("signals",a.id).filter(x=>x.type!=="comment").sort((x,y)=>(y.date||"").localeCompare(x.date||""));
+  out.push({id:"r_know",st:"hr",role:true,q:`What do you know about ${co}?`,why:"A fast test of preparation and genuine interest.",look:`Business model in one line, one recent fact${sig[0]?" (for example: "+sig[0].title+")":""}, and how this team fits.`,how:"What they sell, what changed recently, why that matters to this role.",trap:"Reading their About page back to them.",stories:[],tags:["research"]});
+  let plan=null; try{ plan=salaryPlan(a); }catch(e){}
+  out.push({id:"r_sal",st:"hr",role:true,q:`What are your salary expectations for this role?`,why:"They check you fit the band before investing more time.",look: plan&&plan.anchor?`Anchor at about ${money(plan.anchor)}, floor ${money(plan.floor)}. Say it once, with the reason tied to scope.`:"Ask for the band first, then anchor in the upper part of it with a scope reason.",how:"Band first, then a confident number tied to the role's scope, then stop talking.",trap:"Giving a wide range or apologising for the number.",stories:[],tags:["comp"]});
+  if(a.purpose) out.push({id:"r_purpose",st:"hm",role:true,q:`How would you approach the core of this job: ${a.purpose.replace(/\.$/,"")}?`,why:"The hiring manager wants to hear how you would think about their main problem, not your history.",look:"A three step approach for the first 90 days, each step backed by something you have done before.",how:"Diagnose (listen and measure), fix the biggest lever, build the rhythm. Name one proof per step.",trap:"Jumping to solutions before you understand their data and people.",stories:T(3),tags:["plan"],show:"plan"});
+  ((a.decode&&a.decode.problems)||[]).slice(0,3).forEach((pr,i)=>out.push({id:"r_pb"+i,st:"hm",role:true,q:`How would you solve this: ${pr.p}?`,why:`Taken from the job ad: ${pr.e||"a stated priority"}.`,look:"Your diagnosis, the action, and a result you achieved on a similar problem.",how:"Problem as you understand it, what you would check first, what you did last time and the number.",trap:"Answering in theory with no proof.",stories:T(2),tags:["problem"]}));
+  (a.fitGaps||[]).map(gapQuestion).filter(Boolean).slice(0,3).forEach((q,i)=>out.push({id:"r_gap"+i,st:i===0?"hm":"panel",role:true,q,why:"This is the gap most likely to make them hesitate. They want to see self awareness and a plan.",look:"Acknowledge in one line, bridge with your closest proof, then a short plan to close it in the first 30 days.",how:"Acknowledge, bridge, plan. Under 60 seconds.",trap:"Defending too long, or claiming experience you do not have.",stories:T(1),tags:["gap"]}));
+  if(sig[0]) out.push({id:"r_sig",st:"panel",role:true,q:`What is your view on this news: ${sig[0].title}?`,why:"Senior interviewers test business judgement on what is happening to them right now.",look:"One implication for this team, one risk, one way you would help.",how:"What it means, what to watch, how this role contributes.",trap:"Repeating the headline without a point of view.",stories:T(1),tags:["research"]});
+  const ask=(a.decode&&a.decode.ask)||[];
+  out.push({id:"r_ask",st:"hm",role:true,q:"What questions do you have for me?",why:"Your questions show how you think and whether you understood the role.",look: ask.length?ask.join(" | "):`Ask about the first 90 day priority, what success looks like in a year, and where ${co}'s ${sc.themes[0]?sc.themes[0][0]:"team"} process breaks today.`,how:"Two or three questions about their problems, never about benefits in the first round.",trap:"Saying you have no questions.",stories:[],tags:["close"]});
+  return out;
+}
+function applyFocus(){
+  const a=focusApp();
+  if(!a){ Q.splice(0,Q.length,...Q_BASE); STORIES.splice(0,STORIES.length,...S_BASE); S_BASE.forEach(s=>{delete s._top;}); FOCUS_DONE=""; }
+  else{
+    const sc=focusScores(a), rq=roleQuestions(a,sc);
+    const qs=Q_BASE.slice().sort((x,y)=>(sc.qs[y.id]||0)-(sc.qs[x.id]||0));
+    Q.splice(0,Q.length,...rq,...qs);
+    const st=S_BASE.slice().sort((x,y)=>(x.gap?1:0)-(y.gap?1:0)||(sc.ss[y.id]||0)-(sc.ss[x.id]||0));
+    st.forEach((s,i)=>{ s._top = !s.gap && i<5 && (sc.ss[s.id]||0)>0; });
+    STORIES.splice(0,STORIES.length,...st);
+    shStage = a.status==="interview" ? ((byApp("rounds",a.id).some(r=>r.stage==="hm"))?"panel":"hm") : a.status==="offer" ? "final" : "hr";
+    const t=roleText(a); shSig=new Set();
+    if(/analytic|data|report|dashboard|kpi|metric/.test(t)) shSig.add("analytics");
+    if(/\bai\b|automation|agent/.test(t)) shSig.add("ai");
+    if(/direct reports|manage a team|people leader|lead a team|leading a team/.test(t)) shSig.add("lead");
+    if(/consult|client.facing/.test(t)) shSig.add("consult");
+    if(/channel|partner/.test(t)) shSig.add("channel");
+    if(/director|vice president|\bvp\b|head of/.test((a.role||"").toLowerCase())) shSig.add("exec");
+    FOCUS_DONE=FOCUS+"|"+(a.updated||"");
+  }
+  sSel=null; qStage="all"; rStage="all";
+  renderQFilter(); renderQ(); renderS(); renderShowcaseControls(); renderShowcase(); renderRStage(); setRehearse(Q[0].id); renderFocusBars();
+}
+function focusChoices(){
+  const keep=["interview","screen","applied","offer","target"];
+  return appsArr().filter(a=>keep.includes(a.status)||(a.status==="shortlist"&&(a.triage==="planned"||(a.tailor&&a.tailor.status))))
+    .sort((x,y)=>keep.indexOf(x.status)-keep.indexOf(y.status)||(y.applied||"").localeCompare(x.applied||""));
+}
+function renderFocusBars(){
+  const a=focusApp(), ch=focusChoices();
+  const opts=`<option value="">General practice (no role selected)</option>`+ch.map(x=>`<option value="${esc(x.id)}" ${x.id===FOCUS?"selected":""}>${esc(x.company)}: ${esc((x.role||"").slice(0,60))} (${esc(STATUS[x.status]||x.status)})</option>`).join("");
+  let info="";
+  if(a){ const sc=focusScores(a); const tops=STORIES.filter(s=>s._top).slice(0,5);
+    const nGap=Q.filter(q=>q.role&&/^r_gap/.test(q.id)).length, nRole=Q.filter(q=>q.role).length;
+    info=`<div class="small"><b>${esc(a.company)}</b>: ${esc(a.purpose||a.role||"")}</div>
+      <div class="row" style="gap:6px">${sc.themes.slice(0,4).map(([l])=>`<span class="chip">${esc(l)}</span>`).join("")}</div>
+      <div class="row" style="gap:6px;align-items:center"><span class="k">Lead stories</span>${tops.map(s=>`<span class="mini" title="${esc(s.title)}">${icon(s.id,18)}</span>`).join("")}<span class="small muted">${nRole} role questions, ${nGap} gap probe${nGap===1?"":"s"}</span></div>`;
+  } else info=`<span class="small muted">Pick a role you applied for: every question, story, showcase verdict and practice round will focus on it.</span>`;
+  document.querySelectorAll("[data-focusbar]").forEach(el=>{
+    el.innerHTML=`<span class="fk">Prepping for</span><select aria-label="Role you are preparing for">${opts}</select>${info}`;
+    el.querySelector("select").addEventListener("change",ev=>{ FOCUS=ev.target.value; try{ localStorage.setItem(LSF,FOCUS); }catch(e){} applyFocus(); });
+  });
+}
+function focusSync(){
+  const a=focusApp();
+  if(a && FOCUS_DONE!==FOCUS+"|"+(a.updated||"")) applyFocus(); else renderFocusBars();
 }
 
 /* ---------- REHEARSE ---------- */
@@ -1124,7 +1242,9 @@ function setRehearse(id){
   $("#rAns").value=""; $("#rOut").innerHTML=""; resetTimer();
 }
 function nextQ(){
-  const pool = Q.filter(x=>rStage==="all"||x.st===rStage).filter(x=>x!==rCurrent);
+  const base = focusApp() ? Q.filter(x=>x.role).concat(Q.filter(x=>!x.role).slice(0,10)) : Q;
+  const pool = base.filter(x=>rStage==="all"||x.st===rStage).filter(x=>x!==rCurrent);
+  if(!pool.length) return;
   setRehearse(pool[Math.floor(Math.random()*pool.length)].id);
 }
 function fmt(s){ return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
@@ -1149,7 +1269,15 @@ function quickCheck(text){
     [fillers.length===0, fillers.length? `Filler words: ${[...new Set(fillers.map(f=>f.toLowerCase()))].join(", ")}.` : "No filler words."],
     [!dashes, dashes ? "Contains long dashes; rewrite with commas." : "Clean punctuation."]
   ];
+  const fa=focusApp();
+  if(fa){ const co=fa.company.toLowerCase().split(/[ (]/)[0]; const used=text.toLowerCase().includes(co);
+    const terms=focusScores(fa).themes.slice(0,4).map(t=>t[0]); const hit=terms.filter(t=>t.split(" ").some(w=>w.length>4&&text.toLowerCase().includes(w)));
+    items.push([used||hit.length>0, `Tailored to ${fa.company}: ${used?"you named them":"you did not name them"}; role themes used: ${hit.length?hit.join(", "):"none"} (of ${terms.join(", ")}).`]); }
   return items;
+}
+function coachPrompt(){
+  const q=rCurrent, a=focusApp(), ans=$("#rAns").value.trim();
+  return `Coach my interview answer, using my rules and verified figures in this recruiting project.\n\n`+(a?`ROLE: ${a.role} at ${a.company} (${STATUS[a.status]||a.status})\nJOB PURPOSE: ${a.purpose||""}\nGAPS: ${(a.fitGaps||[]).join("; ")}\n\n`:"")+`QUESTION (${STAGES[q.st]||q.st}): ${q.q}\nWHY THEY ASK: ${q.why}\nWHAT SCORES WELL: ${q.look}\n\nMY ANSWER${rSecs?` (spoken in ${rSecs} seconds)`:""}:\n${ans}\n\nScore intent, structure, evidence, concision and delivery out of 5, give 3 specific fixes, then a tightened version I can say out loud in 60 to 100 seconds, tailored to ${a?a.company:"the role"}. Plain spoken English, short sentences, Canadian spelling, no dashes, only verified figures. My weakness is spoken fluency, so mark where to pause.`;
 }
 function renderQuick(items){
   $("#rOut").innerHTML = `<div class="card"><h3>Quick check</h3><ul class="clean">${items.map(([ok,t])=>`<li><span class="verdict ${ok?"v-show":"v-offer"}">${ok?"ok":"fix"}</span> ${esc(t)}</li>`).join("")}</ul></div>`;
@@ -1159,7 +1287,7 @@ async function coach(){
   if(ans.length<20){ $("#rStatus").textContent="Say or type an answer first."; return; }
   if(rTimerId) toggleTimer();
   const quick = quickCheck(ans);
-  if(!SAMPLE){ renderQuick(quick); $("#rStatus").textContent="Claude is not available here, so this is the quick check."; return; }
+  if(!SAMPLE){ renderQuick(quick); try{ navigator.clipboard.writeText(coachPrompt()); }catch(e){} window.open(CLAUDE_PROJECT,"_blank"); $("#rStatus").textContent="Quick check below. Full coaching prompt copied: paste it in Claude."; return; }
   const btn=$("#rCoach"); btn.disabled=true; $("#rStatus").textContent="Coaching";
   const q = rCurrent;
   const prompt = `You are an interview coach in Canada. Score a candidate's spoken answer.
@@ -1761,6 +1889,8 @@ renderQFilter(); renderQ(); renderCompanies();
 renderS();
 renderShowcaseControls(); renderShowcase();
 renderRStage(); setRehearse("h1");
+["v-questions","v-stories","v-showcase","v-rehearse"].forEach(id=>{ const h=document.querySelector("#"+id+" h2"); if(h) h.insertAdjacentHTML("afterend",'<div class="focusbar" data-focusbar></div>'); });
+{ const _rp=renderPipeline; renderPipeline=function(){ _rp(); try{ focusSync(); }catch(e){} }; }
 initAddForm(); loadLocal2(); renderPipeline();
 $("#btnDecode").addEventListener("click", decodeAI);
 $("#ghSave").addEventListener("click", async()=>{ const t=$("#ghToken").value.trim(); if(!t){ $("#ghMsg").textContent="Paste the token first."; return; } $("#ghMsg").textContent="Connecting..."; const ok=await ghConnect(t); if(ok){ try{ localStorage.setItem(LSGH,t); }catch(e){} $("#ghToken").value=""; $("#ghMsg").textContent="Connected. "+Object.keys(STORE.data.apps).length+" roles loaded."; $("#ghWrap").open=false; } else $("#ghMsg").textContent="That token could not open MG4Trading/interview-model-data."; });
