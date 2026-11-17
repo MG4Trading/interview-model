@@ -208,7 +208,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 <!-- DECODE -->
 <section class="view" id="v-decode" aria-labelledby="h-decode">
   <h2 id="h-decode">1. Decode the job</h2>
-  <p class="lede">Paste any job description. The model works out why the role exists, which problems you are being hired to fix, how success will be measured, what each interviewer will probe, and what to show.</p>
+  <p class="lede">Paste a job description. You get 7 checks: the role objective, the hiring manager's main problem, company news, salary, the hiring manager, your connections there, and your match.</p>
   <div class="funnel" aria-label="Interview stages in order">
     <div class="f-hr">HR screen</div><div class="f-hm">Hiring manager</div><div class="f-panel">Panel</div><div class="f-case">Case study</div>
   </div>
@@ -223,8 +223,8 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
       <textarea id="jdText"></textarea>
     </label>
     <div class="row">
-      <button class="btn primary" id="btnDecode">Decode with Claude</button>
-      <button class="btn" id="btnDecodeQuick">Quick decode (offline)</button>
+      <button class="btn primary" id="btnDecode">Decode now</button>
+      <button class="btn" id="btnDecodeQuick">Deep decode in Claude</button>
       <button class="btn ghost" id="btnFetchAsk">Copy fetch request for chat</button>
       <span class="status" id="decodeStatus"></span>
     </div>
@@ -816,6 +816,98 @@ function route(){
   window.scrollTo(0,0);
 }
 
+/* ---------- DECODE BRIEF (7 checks) ---------- */
+let CONN=null, CONN_ST="";
+const encQ=s=>encodeURIComponent(s||"");
+function normCo(s){ return String(s||"").toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9 ]+/g," ").replace(/\b(inc|incorporated|ltd|limited|llc|corp|corporation|co|company|canada|canadian|group|holdings|the|plc|lp|ulc)\b/g," ").replace(/\s+/g," ").trim(); }
+function sameCo(a,b){ a=normCo(a); b=normCo(b); if(!a||!b) return false; if(a===b) return true; const s=a.length<b.length?a:b, l=a.length<b.length?b:a; return s.length>=4 && (l.startsWith(s+" ")||l.endsWith(" "+s)||l.includes(" "+s+" ")); }
+function parseCsv(t){ const rows=[]; let row=[],f="",q=false; for(let i=0;i<t.length;i++){ const c=t[i]; if(q){ if(c==='"'){ if(t[i+1]==='"'){ f+='"'; i++; } else q=false; } else f+=c; } else if(c==='"') q=true; else if(c===','){ row.push(f); f=""; } else if(c==='\n'||c==='\r'){ if(c==='\r'&&t[i+1]==='\n') i++; row.push(f); rows.push(row); row=[]; f=""; } else f+=c; } if(f||row.length){ row.push(f); rows.push(row); } return rows; }
+function connType(p){ p=(p||"").toLowerCase(); if(/recruit|talent|hrbp|people partner|human resources|\bhr\b/.test(p)) return "R"; if(/revenue operations|sales operations|revops|sales strategy|sales effectiveness|enablement|\bgtm\b|go.to.market|business operations|sales programs|compensation|channel|partner/.test(p)) return "P"; if(/\bvp\b|vice president|director|head of|\bhead\b|general manager|chief|president/.test(p)) return "L"; return "O"; }
+async function loadConn(){
+  if(CONN) return CONN; if(STORE.mode!=="gh"||!GH.token){ CONN_ST="nogh"; return null; }
+  for(const n of ["data/Connections.csv","data/connections.csv"]){
+    try{ const j=await ghReq(n); const rows=parseCsv(b64dec(j.content)); const h=rows.findIndex(r=>r[0]==="First Name"&&r.includes("Company")); if(h<0) continue;
+      const H=rows[h], ix=k=>H.indexOf(k);
+      CONN=rows.slice(h+1).filter(r=>r.length>4).map(r=>({name:(r[ix("First Name")]+" "+r[ix("Last Name")]).trim(), url:r[ix("URL")], company:r[ix("Company")], title:r[ix("Position")]}));
+      CONN_ST="ok"; return CONN; }catch(e){ if(e.status!==404){ CONN_ST="err"; return null; } }
+  }
+  CONN_ST="none"; return null;
+}
+const FN_WORDS={revops:"revenue operations",channel:"partnerships",strategy:"strategy",sales:"sales",analytics:"analytics",other:"operations"};
+const STRONG=[/forecast|quota|territor|capacity|planning/,/compensation|incentive|commission/,/crm|salesforce|hubspot|data quality/,/dashboard|report|kpi|analytic|insight|metric/,/channel|partner|reseller|alliance|distribution/,/pipeline|acquisition|new business|funnel|conversion/,/\bai\b|automation|agentic/,/pricing|revenue growth|margin|arpu/,/market entry|expansion|new market|launch|go.to.market|\bgtm\b/,/strategy|business case|consult|transformation/,/telecom|wireless|mobile|subscriber/,/stakeholder|cross.functional|influence|executive/,/operating rhythm|cadence|business review|operating model/,/market (intelligence|sensing|research)|competitive/];
+const DGAPS=[[/\b(fluent|bilingual)[^.]{0,40}french|french[^.]{0,30}(required|essential|fluen)/i,"French required"],[/\bsql\b|python|\br\b programming/i,"SQL or coding"],[/anaplan|xactly|captivateiq|varicent|spiff/i,"Specific comp or planning tool"],[/tableau|looker|snowflake|dbt\b/i,"BI or data stack tool"],[/clari|gong|outreach\.io|salesloft/i,"Specific sales tech tool"],[/\bcpa\b|\bcfa\b|\bp\.?eng\b|licen[cs]ed/i,"Licence or designation"],[/us (work )?authori[sz]ation|eligible to work in the us/i,"US work authorization"],[/security clearance/i,"Security clearance"]];
+function quickFit(title,jd){
+  const t=(title+" "+jd).toLowerCase(); const hits=STRONG.filter(r=>r.test(t)).length;
+  const gaps=DGAPS.filter(([r])=>r.test(jd)).map(([,l])=>l);
+  let f=62+Math.min(hits,9)*3.2-gaps.length*6; if(/\b(vp|vice president|chief|svp)\b/i.test(title)) f-=8; if(/\b(coordinator|associate|junior|intern)\b/i.test(title)) f-=10;
+  return {fit:Math.max(40,Math.min(92,Math.round(f))), hits, gaps};
+}
+function decodeCompany(d){ if(d.company) return d.company; const t=d.title||$("#jdCompany").value||""; return (t.split(/:| at |,/)[0]||t).replace(/^Example\s*/i,"").trim(); }
+function decodeRole(d){ if(d.role) return d.role; const t=d.title||""; const c=t.split(/:| at |,/)[0]||""; return t.slice(c.length).replace(/^[:,\s]+|^at\s+/,"").trim()||t; }
+function briefHTML(d){
+  const jd=d.jd||$("#jdText").value||""; const co=decodeCompany(d), role=decodeRole(d);
+  const recs=appsArr().filter(a=>sameCo(a.company,co)); const rec=recs[0]||{};
+  const deep=d.source==="ai"||d.source==="deep";
+  const probs=d.problems||[];
+  const sigs=recs.flatMap(a=>byApp("signals",a.id)).filter(s=>s.type!=="comment").sort((x,y)=>(y.date||"").localeCompare(x.date||"")).slice(0,4);
+  const news=(d.news||[]).slice(0,4);
+  const rg=jd.match(/\$\s?(\d[\d,]{4,})(?:\.\d+)?\s*(?:to|-|–|and)\s*\$?\s?(\d[\d,]{4,})/);
+  const sal=Object.assign({}, rec.salary||{}, d.salary||{});
+  const posted = rg ? `$${rg[1]} to $${rg[2]}` : (sal.postedMin&&sal.postedMax ? `$${Number(sal.postedMin).toLocaleString("en-CA")} to $${Number(sal.postedMax).toLocaleString("en-CA")}` : "");
+  const bench = sal.benchMid ? `Market: $${Number(sal.benchLow||0).toLocaleString("en-CA")} / $${Number(sal.benchMid).toLocaleString("en-CA")} / $${Number(sal.benchHigh||0).toLocaleString("en-CA")} (low, mid, high)${sal.benchSources?" from "+esc(sal.benchSources):""}` : "";
+  const lane=rec.lane||guessLane(role+" "+jd.slice(0,400)); const fn=FN_WORDS[lane]||"operations";
+  const hm=d.hm||null;
+  const qf=quickFit(role,jd); const fit=Number(d.fit)||Number(rec.fit)||qf.fit; const fitSrc=(Number(d.fit)&&deep)||Number(rec.fit)?"Weighted match":"Quick estimate";
+  const L=(u,t)=>`<a class="btn sm ghost" href="${u}" target="_blank" rel="noopener">${t}</a>`;
+  const sec=(n,title,body)=>`<div class="card"><div class="k">${n}. ${title}</div>${body}</div>`;
+  return `<div class="card" style="border-width:2px"><div class="row between"><span class="k">Decode brief</span>${deep?`<span class="verdict v-show">Deep decode</span>`:`<span class="verdict v-offer">Instant decode</span>`}</div><h2>${esc(co)}${role?": "+esc(role):""}</h2>
+  ${!deep?`<div class="small muted">Instant decode reads the ad on your phone. Tap <b>Deep decode in Claude</b> for researched news, salary benchmark, the named hiring manager and a weighted match.</div>`:""}</div>
+  <div class="grid2">
+  ${sec(1,"Role objective",`<p style="font-size:18px;font-weight:600">${esc(d.objective||d.purpose||"Paste the full job description to find the objective.")}</p>`)}
+  ${sec(2,"Hiring manager's main problem",probs.length?`<p><b>${esc(probs[0].p)}</b><br><span class="small muted">${esc(probs[0].e||"")}</span></p>${probs.length>1?`<ul class="clean small">${probs.slice(1,4).map(x=>`<li>${esc(x.p)}</li>`).join("")}</ul>`:""}`:`<p class="small muted">No clear problem found in the text. Deep decode reads between the lines.</p>`)}
+  ${sec(3,"Company brief and news",`${d.brief?`<p class="small" style="white-space:pre-wrap">${esc(d.brief)}</p>`:""}${news.length||sigs.length?`<ul class="clean small">${news.map(x=>`<li>${x.u?`<a href="${esc(x.u)}" target="_blank" rel="noopener">${esc(x.t)}</a>`:esc(x.t)}${x.d?` <span class="muted">${esc(fmtDate(x.d))}</span>`:""}</li>`).join("")}${sigs.map(s=>`<li>${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`:esc(s.title)} <span class="muted">${esc(fmtDate(s.date))}</span>${s.action?`<br><span class="muted">${esc(s.action)}</span>`:""}</li>`).join("")}</ul>`:(d.brief?"":`<p class="small muted">No saved news yet.</p>`)}<div class="row" style="gap:6px">${L(`https://news.google.com/search?q=${encQ('"'+co+'"')}&hl=en-CA&gl=CA&ceid=CA:en`,"Latest news")}${L(`https://www.google.com/search?q=${encQ(co+" investor relations OR newsroom 2026")}`,"Newsroom")}</div>`)}
+  ${sec(4,"Salary",`${posted?`<p><b>Posted: ${esc(posted)}</b></p>`:`<p class="small">No range in the ad.</p>`}${bench?`<p class="small">${bench}</p>`:""}${sal.benchNote?`<p class="small muted">${esc(sal.benchNote)}</p>`:""}<div class="row" style="gap:6px">${L(`https://www.google.com/search?q=${encQ("site:jobbank.gc.ca wages "+role.replace(/\(.*?\)/g,"")+" Toronto")}`,"Job Bank wages")}${L(`https://www.google.com/search?q=${encQ('"'+co+'" '+role.replace(/\(.*?\)/g,"")+" salary Canada glassdoor")}`,"Glassdoor")}</div>`)}
+  ${sec(5,"Hiring manager",`${hm&&hm.name?`<p><b>${hm.url?`<a href="${esc(hm.url)}" target="_blank" rel="noopener">${esc(hm.name)}</a>`:esc(hm.name)}</b>${hm.title?`, ${esc(hm.title)}`:""}${hm.confidence?` <span class="chip">${esc(hm.confidence)}</span>`:""}</p>${hm.why?`<p class="small muted">${esc(hm.why)}</p>`:""}`:(rec.poster?`<p><b>${esc(rec.poster)}</b> <span class="small muted">(posted the role)</span></p>`:`<p class="small muted">Not identified yet. Search below, or run Deep decode.</p>`)}${(d.hmAlt||[]).length?`<ul class="clean small">${d.hmAlt.slice(0,3).map(x=>`<li>${x.url?`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)}</a>`:esc(x.name)}${x.title?", "+esc(x.title):""}</li>`).join("")}</ul>`:""}<div class="row" style="gap:6px">${L(`https://www.linkedin.com/search/results/people/?keywords=${encQ(co+" "+fn+" director")}&origin=GLOBAL_SEARCH_HEADER`,"LinkedIn search")}${L(`https://www.google.com/search?q=${encQ('site:linkedin.com/in "'+co+'" ("director" OR "head of" OR "vice president") "'+fn+'"')}`,"Google X-ray")}</div>`)}
+  ${sec(6,"Your connections there",`<div id="decConn"><span class="small muted">Searching your ${CONN?CONN.length.toLocaleString("en-CA")+" ":""}connections...</span></div><div class="row" style="gap:6px">${L(`https://www.linkedin.com/search/results/people/?keywords=${encQ(co)}&network=%5B%22F%22%5D`,"1st degree on LinkedIn")}${L(`https://www.linkedin.com/search/results/people/?keywords=${encQ(co)}&network=%5B%22S%22%5D`,"2nd degree")}</div>`)}
+  ${sec(7,"Matching",`<div class="row between"><b style="font-size:26px">${fit}%</b><span class="chip">${fitSrc}</span></div><div class="meter" aria-hidden="true"><i style="width:${Math.min(100,fit)}%"></i></div><p class="small">${fit>=85?"Meets your 85% rule.":"Below your 85% rule: apply only with a referral or if the post is fresh."}</p>${(rec.fitWhy||[]).length&&!deep?`<ul class="clean small">${rec.fitWhy.slice(0,3).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}${d.fitWhy?`<ul class="clean small">${[].concat(d.fitWhy).slice(0,3).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}${!deep&&!Number(rec.fit)?`<p class="small muted">${qf.hits} of your core strengths named in the ad${qf.gaps.length?"; possible gaps: "+esc(qf.gaps.join(", ")):""}.</p>`:""}`)}
+  </div>`;
+}
+async function fillConn(d){
+  const el=$("#decConn"); if(!el) return; const co=decodeCompany(d);
+  const recs=appsArr().filter(a=>sameCo(a.company,co));
+  const C=await loadConn(); const el2=$("#decConn"); if(!el2) return;
+  let list=[];
+  if(C){ list=C.filter(c=>sameCo(c.company,co)).map(c=>Object.assign({type:connType(c.title)},c)); }
+  else { const seen={}; recs.forEach(a=>(a.refs||[]).forEach(r=>{ if(!seen[r.name]){ seen[r.name]=1; list.push(r); } })); }
+  const ord={P:0,R:1,L:2,O:3}, col={P:"#2e7d32",R:"#8d5a2b",L:"#1f5fa8",O:"#6b6b6b"}, lab={P:"Peer",R:"Recruiter",L:"Leader",O:"Contact"};
+  list.sort((x,y)=>(ord[x.type]??4)-(ord[y.type]??4));
+  const note=C?"":CONN_ST==="nogh"?"Connect GitHub to search your full connections file. ":CONN_ST==="none"?"Upload Connections.csv to data/ to search all your connections. ":"";
+  el2.innerHTML = list.length ? `<p><b>${list.length}</b> ${list.length===1?"person":"people"} you know at ${esc(co)}.</p><ul class="clean small">${list.slice(0,8).map(r=>`<li><span class="chip" style="color:${col[r.type]||"#666"};border-color:${col[r.type]||"#666"}">${lab[r.type]||"Contact"}</span> ${r.url?`<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a>`:esc(r.name)}${r.title?`, <span class="muted">${esc(r.title)}</span>`:""}</li>`).join("")}</ul>${list.length>8?`<p class="small muted">and ${list.length-8} more.</p>`:""}<p class="small muted">${note}Ask a Peer or Leader for a referral before you apply.</p>`
+    : `<p class="small">No 1st degree connections found at ${esc(co)}.</p><p class="small muted">${note}Check 2nd degree on LinkedIn for an introduction.</p>`;
+}
+function deepDecodePrompt(id,title,link,jd){
+  return `Deep decode this role for my Interview Model record "${id}" (${title}).
+
+Use the Composio GitHub toolkit on the private repo MG4Trading/interview-model-data. Read data/apps.json (record "${id}": link and jd), data/profile.json (my verified stories and rules) and data/Connections.csv (never copy email addresses).${link?`\nJob link: ${link}`:""}
+
+Research, then write record.decode (re-read and merge first) with:
+objective (one sentence, the business outcome), purpose, problems [{p,e}] with the hiring manager's main problem first, brief (3 short lines on the company: what it sells, to whom, current priorities), news [{t,u,d}] (up to 4 dated items from the last 90 days with URLs), salary {posted, benchLow, benchMid, benchHigh, benchSources, benchNote} (Job Bank wages for the NOC and region annualised at 2080 hours, plus Glassdoor or company data if found), hm {name,title,url,why,confidence high|medium|low} and hmAlt [up to 3 {name,title,url}] (public search only, never contact anyone), refs from my connections file (type P peer, R recruiter, L leader, O other; top 4 also into record.refs and refCount), fit (weighted match 0 to 100 against my verified record) and fitWhy (3 short lines: strongest matches and the main gap), metrics, hidden, stages {hr,hm,panel,case}, stories [[id,why]] from profile story ids only, showcase, risks [[risk,fix]], ask, status "ready", date.
+Rules: only verified facts about me, no invented numbers, no age signals, no dashes, Canadian spelling. Then tell me the objective, the main problem, the hiring manager and the match in 4 lines.`;
+}
+async function deepDecode(){
+  const jd=$("#jdText").value.trim(), title=$("#jdCompany").value.trim(), link=$("#jdLink").value.trim();
+  if(jd.length<80&&!link){ $("#decodeStatus").textContent="Paste the job description or add the job link first."; return; }
+  const co=(title.split(/:| at |,/)[0]||title).replace(/^Example\s*/i,"").trim(); const role=title.slice((title.split(/:| at |,/)[0]||"").length).replace(/^[:,\s]+|^at\s+/,"").trim();
+  let ex=appsArr().find(a=>sameCo(a.company,co)&&(normCo(a.role).includes(normCo(role).slice(0,18))||(link&&a.link===link)));
+  let id;
+  const req={status:"requested",date:today()};
+  if(ex){ id=ex.id; await sUpdate("apps",id,Object.assign({decode:Object.assign({},ex.decode||{},req)}, jd.length>=80?{jd:jd.slice(0,20000)}:{}, link&&!ex.link?{link}:{})); }
+  else { const qf=quickFit(role,jd); id=await sAdd("apps",{company:co||"Company", role, link, lane:guessLane(title+" "+jd.slice(0,400)), status:"target", fit:"", jd:jd.slice(0,20000), decode:req, source:"decode"}); }
+  const p=deepDecodePrompt(id,title,link,jd);
+  try{ navigator.clipboard.writeText(p).catch(()=>{}); }catch(e){} $("#decodeOut").insertAdjacentHTML("afterbegin",`<details class="card"><summary class="small">Prompt (if the copy did not work, select and copy)</summary><textarea style="min-height:140px">${esc(p)}</textarea></details>`); window.open(CLAUDE_PROJECT,"_blank");
+  $("#decodeStatus").textContent="Saved and queued. The prompt is copied: paste it in the Claude project now, or the next feed run (6:47 am or 4:47 pm) fills it in.";
+}
+
 /* ---------- DECODE ---------- */
 let LAST_DECODE=null;
 function renderDecode(d){
@@ -846,7 +938,8 @@ function renderDecode(d){
     <div class="card"><div class="k">Fit risks and how to defuse them</div><ul class="clean">${(d.risks||[]).map(([r,f])=>`<li><b>${esc(r)}.</b> ${esc(f)}</li>`).join("")}</ul></div>
     <div class="card"><div class="k">Questions to ask the hiring manager</div><ul class="clean">${(d.ask||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
   </div>`;
-  if(d.source!=="example") $("#decodeOut").insertAdjacentHTML("beforeend",`<div class="row"><button class="btn primary" id="btnSavePipe">Save to pipeline</button></div>`);
+  if(d.source!=="example"){ $("#decodeOut").insertAdjacentHTML("afterbegin", briefHTML(d)+`<h3>Interview detail</h3>`); fillConn(d); }
+  if(d.source!=="example"&&!appsArr().some(a=>sameCo(a.company,decodeCompany(d))&&normCo(a.role)===normCo(decodeRole(d)))) $("#decodeOut").insertAdjacentHTML("beforeend",`<div class="row"><button class="btn primary" id="btnSavePipe">Save to pipeline</button></div>`);
   const sp=$("#btnSavePipe"); if(sp) sp.addEventListener("click",()=>{ sp.disabled=true; saveDecodeToPipeline(LAST_DECODE); });
   wireStoryPills($("#decodeOut"));
   $("#decodeOut").querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>{location.hash=b.dataset.go;}));
@@ -880,7 +973,8 @@ function decodeOffline(title, jd){
   if(/report(ing)? to (the )?(vp|director|head|chief)/i.test(jd)) hidden.push("Note who you report to: that person is your first customer.");
   if(!hidden.length) hidden.push("Ask the recruiter what triggered this opening: growth, a departure, or a new function.");
   const purpose = top.length ? "This role exists to fix "+top.slice(0,2).map(h=>h.p.toLowerCase()).join(" and ")+", and keep it fixed as the business grows." : "Paste a fuller JD to find the job purpose: the responsibilities section carries the signal.";
-  return {title:title, source:"quick", purpose,
+  const obj=(jd.match(/(?:about the role|the role|role summary|position summary|purpose|the opportunity|what you.ll do)[:\s\n]+([^\n.]{40,260}[.]?)/i)||[])[1];
+  return {title:title, source:"quick", purpose, objective: obj?obj.trim():purpose, jd,
     problems: top.map(h => ({p:h.p, e:"Matched in the JD: "+(jd.match(h.k)||[""])[0]})),
     metrics: top.map(h => h.m), hidden, stages,
     stories: top.map(h => h.s),
@@ -893,7 +987,7 @@ function storyDigest(){ return STORIES.filter(s=>!s.gap).map(s=>`${s.id}: ${s.ti
 async function decodeAI(){
   const jd = $("#jdText").value.trim(); const title = $("#jdCompany").value.trim()||"This role";
   if(jd.length<80){ $("#decodeStatus").textContent="Paste the full job description first."; return; }
-  if(!SAMPLE){ renderDecode(decodeOffline(title,jd)); $("#decodeStatus").textContent="Claude is not available here, so this is the quick decode."; return; }
+  if(!SAMPLE){ renderDecode(decodeOffline(title,jd)); $("#decodeStatus").textContent="Instant decode ready. For researched news, salary, the hiring manager and a weighted match, tap Deep decode in Claude."; return; }
   const btn=$("#btnDecode"); btn.disabled=true; $("#decodeStatus").textContent="Decoding, about 20 seconds";
   const prompt = `You are a senior Canadian recruiting consultant preparing a candidate for interviews.
 Analyze the job description and return ONLY a JSON object with these keys:
@@ -1833,7 +1927,7 @@ function prepNext(id){
   if(last){ next = last.outcome==="declined" ? last.stage : order[Math.min(order.indexOf(last.stage)+1, order.length-1)]; }
   shStage=next; renderShowcaseControls(); renderShowcase();
   $("#jdCompany").value = a.company+": "+(a.role||""); if(a.jd) $("#jdText").value=a.jd;
-  if(a.decode) renderDecode(Object.assign({title:a.company+": "+(a.role||""), source:"ai"}, a.decode));
+  if(a.decode&&(a.decode.purpose||a.decode.objective)) renderDecode(Object.assign({title:a.company+": "+(a.role||""), company:a.company, role:a.role, jd:a.jd||"", source:a.decode.status==="ready"?"deep":"ai"}, a.decode)); else if(a.jd) renderDecode(Object.assign(decodeOffline(a.company+": "+(a.role||""),a.jd),{company:a.company, role:a.role}));
   if(next!=="final"){ rStage=next; renderRStage(); nextQ(); }
   location.hash = a.decode||a.jd ? "decode" : "showcase";
 }
@@ -1900,7 +1994,7 @@ function guessLane(t){ t=t.toLowerCase(); if(/rev(enue)? ?op|sales op|sales prog
 async function saveDecodeToPipeline(d){
   const title=$("#jdCompany").value.trim(); const parts=title.split(/:|,| at /); const jd=$("#jdText").value.trim();
   const range=jd.match(/\$\s?(\d[\d,]{4,})\s*(?:to|-|and)\s*\$?\s?(\d[\d,]{4,})/);
-  const rec={company:(parts[0]||title).replace(/^Example\s*/i,"").trim()||"Company", role:title.slice((parts[0]||"").length).replace(/^[:,\s]+|^at\s+/,"").trim(), link:$("#jdLink").value.trim(), lane:guessLane(title+" "+jd.slice(0,400)), status:"target", fit:d.fit||"", purpose:d.purpose||"", jd:jd.slice(0,20000), decode:{purpose:d.purpose,problems:d.problems,metrics:d.metrics,hidden:d.hidden,stages:d.stages,stories:d.stories,showcase:d.showcase,risks:d.risks,ask:d.ask,fit:d.fit}, salary:range?{postedMin:range[1].replace(/,/g,""),postedMax:range[2].replace(/,/g,"")}:{}, source:"decode"};
+  const rec={company:(parts[0]||title).replace(/^Example\s*/i,"").trim()||"Company", role:title.slice((parts[0]||"").length).replace(/^[:,\s]+|^at\s+/,"").trim(), link:$("#jdLink").value.trim(), lane:guessLane(title+" "+jd.slice(0,400)), status:"target", fit:d.fit||"", purpose:d.purpose||"", jd:jd.slice(0,20000), decode:{objective:d.objective,purpose:d.purpose,problems:d.problems,metrics:d.metrics,hidden:d.hidden,stages:d.stages,stories:d.stories,showcase:d.showcase,risks:d.risks,ask:d.ask,fit:d.fit}, salary:range?{postedMin:range[1].replace(/,/g,""),postedMax:range[2].replace(/,/g,"")}:{}, source:"decode"};
   try{ await sAdd("apps",rec); $("#decodeStatus").textContent="Saved to your pipeline as a target. Change the status once you apply."; }catch(e){ $("#decodeStatus").textContent="Could not save to the pipeline."; }
 }
 
@@ -1936,7 +2030,7 @@ $("#btnDecode").addEventListener("click", decodeAI);
 $("#ghSave").addEventListener("click", async()=>{ const t=$("#ghToken").value.trim(); if(!t){ $("#ghMsg").textContent="Paste the token first."; return; } $("#ghMsg").textContent="Connecting..."; const ok=await ghConnect(t); if(ok){ try{ localStorage.setItem(LSGH,t); }catch(e){} $("#ghToken").value=""; $("#ghMsg").textContent="Connected. "+Object.keys(STORE.data.apps).length+" roles loaded."; $("#ghWrap").open=false; } else $("#ghMsg").textContent="That token could not open MG4Trading/interview-model-data."; });
 $("#ghReload").addEventListener("click", ()=>{ if(STORE.mode==="gh") ghLoadAll().then(()=>$("#ghMsg").textContent="Reloaded.").catch(()=>$("#ghMsg").textContent="Could not reload."); else $("#ghMsg").textContent="Connect first."; });
 $("#ghForget").addEventListener("click", ()=>{ try{ localStorage.removeItem(LSGH); }catch(e){} GH.token=""; STORE.mode="local"; $("#ghChip").textContent="Set up"; setSync("Disconnected. Saved on this device only."); $("#ghMsg").textContent="Token removed from this browser."; });
-$("#btnDecodeQuick").addEventListener("click", ()=>{ const jd=$("#jdText").value.trim(); if(jd.length<80){$("#decodeStatus").textContent="Paste the full job description first.";return;} renderDecode(decodeOffline($("#jdCompany").value.trim()||"This role", jd)); $("#decodeStatus").textContent="Quick decode, from keywords in the JD."; });
+$("#btnDecodeQuick").addEventListener("click", ()=>{ deepDecode().catch(()=>{ $("#decodeStatus").textContent="Could not queue the deep decode. Check the GitHub connection."; }); });
 $("#qSearch").addEventListener("input", renderQ);
 $("#qMode").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
   const company = b.dataset.mode==="company";
