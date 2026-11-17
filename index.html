@@ -1125,7 +1125,9 @@ function renderShowcase(){
 
 /* ---------- PREP FOCUS: tailor questions, stories, showcase and rehearse to one role ---------- */
 const LSF="im_focus";
-let FOCUS=(()=>{ try{ return localStorage.getItem(LSF)||""; }catch(e){ return ""; } })();
+const BASE_ID="sfdc";
+const INVITED=a=>!!a&&(["screen","interview","offer"].includes(a.status)||a.id===BASE_ID);
+let FOCUS=(()=>{ try{ const v=localStorage.getItem(LSF); return v===null?BASE_ID:(v==="none"?"":v); }catch(e){ return BASE_ID; } })();
 let FOCUS_DONE="";
 const Q_BASE=Q.slice(), S_BASE=STORIES.slice();
 const THEMES=[
@@ -1234,12 +1236,12 @@ function applyFocus(){
 }
 function focusChoices(){
   const keep=["interview","screen","applied","offer","target"];
-  return appsArr().filter(a=>keep.includes(a.status)||(a.status==="shortlist"&&(a.triage==="planned"||(a.tailor&&a.tailor.status))))
-    .sort((x,y)=>keep.indexOf(x.status)-keep.indexOf(y.status)||(y.applied||"").localeCompare(x.applied||""));
+  return appsArr().filter(a=>a.id===BASE_ID||keep.includes(a.status)||(a.status==="shortlist"&&(a.triage==="planned"||(a.tailor&&a.tailor.status))))
+    .sort((x,y)=>(y.id===BASE_ID)-(x.id===BASE_ID)||keep.indexOf(x.status)-keep.indexOf(y.status)||(y.applied||"").localeCompare(x.applied||""));
 }
 function renderFocusBars(){
   const a=focusApp(), ch=focusChoices();
-  const opts=`<option value="">General practice (no role selected)</option>`+ch.map(x=>`<option value="${esc(x.id)}" ${x.id===FOCUS?"selected":""}>${esc(x.company)}: ${esc((x.role||"").slice(0,60))} (${esc(STATUS[x.status]||x.status)})</option>`).join("");
+  const opts=`<option value="">General practice (no role selected)</option>`+ch.map(x=>`<option value="${esc(x.id)}" ${x.id===FOCUS?"selected":""}>${esc(x.company)}: ${esc((x.role||"").slice(0,60))} (${x.id===BASE_ID?"base model":esc(STATUS[x.status]||x.status)})</option>`).join("");
   let info="";
   if(a){ const sc=focusScores(a); const tops=STORIES.filter(s=>s._top).slice(0,5);
     const nGap=Q.filter(q=>q.role&&/^r_gap/.test(q.id)).length, nRole=Q.filter(q=>q.role).length;
@@ -1249,13 +1251,14 @@ function renderFocusBars(){
     const ps=(PACKS[a.id]||{}).st, P=pack(), req=a.prep&&a.prep.status==="requested";
     info+= ps==="ok" ? `<div class="row" style="gap:8px;align-items:center"><span class="verdict v-show">Prep pack ready${P.built?" "+esc(fmtDate(P.built)):""}</span><span class="small">${Object.keys(P.answers||{}).length} questions with 3 answers each</span><button class="btn sm ghost" data-packreq="1">Rebuild</button></div>${P.brief?`<div class="small" style="white-space:pre-wrap">${esc(P.brief)}</div>`:""}`
       : ps==="loading" ? `<span class="small muted">Loading prep pack...</span>`
+      : !INVITED(a) ? `<div class="row" style="gap:8px;align-items:center"><span class="verdict v-hold">Prep pack on hold</span><span class="small">It builds automatically when an interview invite arrives for this role. Until then, practise with the Salesforce base model.</span></div>`
       : `<div class="row" style="gap:8px;align-items:center">${req?`<span class="verdict v-offer">Pack queued ${esc(fmtDate(a.prep.date))}: ready after the next feed run (6:47 am or 4:47 pm)</span>`:`<span class="small"><b>No prep pack yet.</b> It adds 3 outstanding answers to every question, story angles and a tailored showcase plan.</span><button class="btn sm primary" data-packreq="1">Build prep pack</button>`}<button class="btn sm" data-packnow="1">Build now in Claude</button></div>`;
   } else info=`<span class="small muted">Pick a role you applied for: every question, story, showcase verdict and practice round will focus on it.</span>`;
   document.querySelectorAll("[data-focusbar]").forEach(el=>{
     el.innerHTML=`<span class="fk">Prepping for</span><select aria-label="Role you are preparing for">${opts}</select>${info}`;
     el.querySelectorAll("[data-packreq]").forEach(b=>b.addEventListener("click",()=>{ const x=focusApp(); if(x) sUpdate("apps",x.id,{prep:{status:"requested",date:today()}}); }));
     el.querySelectorAll("[data-packnow]").forEach(b=>b.addEventListener("click",()=>{ const x=focusApp(); if(!x) return; try{ navigator.clipboard.writeText(packPrompt(x)); }catch(e){} window.open(CLAUDE_PROJECT,"_blank"); sUpdate("apps",x.id,{prep:{status:"requested",date:today()}}); }));
-    el.querySelector("select").addEventListener("change",ev=>{ FOCUS=ev.target.value; try{ localStorage.setItem(LSF,FOCUS); }catch(e){} applyFocus(); });
+    el.querySelector("select").addEventListener("change",ev=>{ FOCUS=ev.target.value; try{ localStorage.setItem(LSF,FOCUS||"none"); }catch(e){} applyFocus(); });
   });
 }
 function focusSync(){
@@ -1790,7 +1793,7 @@ function wirePipeline(){
   L.querySelectorAll("form[data-round]").forEach(f=>f.addEventListener("submit",async ev=>{
     ev.preventDefault(); const fd=new FormData(f); const appId=f.dataset.round;
     const rec={appId, stage:fd.get("stage"), date:fd.get("date"), who:fd.get("who"), outcome:fd.get("outcome"), questions:fd.get("questions"), notes:fd.get("notes"), gaps:fd.getAll("gaps")};
-    try{ await sAdd("rounds",rec); const st=STORE.data.apps[appId].status; if(["target","applied","screen"].includes(st)) await sUpdate("apps",appId,{status: rec.stage==="hr"?"screen":"interview"}); if(rec.outcome==="declined") await sUpdate("apps",appId,{status:"rejected"}); }catch(e){}
+    try{ await sAdd("rounds",rec); const st=STORE.data.apps[appId].status; if(["target","applied","screen"].includes(st)){ const ap=STORE.data.apps[appId]; await sUpdate("apps",appId,Object.assign({status: rec.stage==="hr"?"screen":"interview"},(ap.prep&&ap.prep.status)?{}:{prep:{status:"requested",date:today()}})); } if(rec.outcome==="declined") await sUpdate("apps",appId,{status:"rejected"}); }catch(e){}
   }));
   L.querySelectorAll("[data-thank]").forEach(b=>b.addEventListener("click",()=>sUpdate("rounds",b.dataset.thank,{thanked:true}).catch(()=>{})));
   L.querySelectorAll("[data-rout]").forEach(b=>b.addEventListener("click",async()=>{ const r=STORE.data.rounds[b.dataset.rout]; try{ await sUpdate("rounds",b.dataset.rout,{outcome:b.dataset.o}); if(b.dataset.o==="declined") await sUpdate("apps",r.appId,{status:"rejected"}); }catch(e){} }));
@@ -1874,7 +1877,7 @@ EMAIL:
       if(d.type==="rejection"){
         await sUpdate("apps",id,{status:"rejected", next:{text:"Send the feedback request; keep the relationship warm", date:today()}});
         await sAdd("lessons",{appId:id, company:a.company, date:today(), stage:d.stage_reached||"", reason:d.reason||"", generic:!!d.generic, reapply:d.reapply||"", gaps:d.gaps||[], excerpt:t.slice(0,400)});
-      } else if(d.type==="interview_invite"){ await sUpdate("apps",id,{status: a.status==="applied"||a.status==="target"?"screen":a.status, next:{text:"Interview: confirm time, then run Prepare next step", date:today()}}); }
+      } else if(d.type==="interview_invite"){ await sUpdate("apps",id,Object.assign({status: a.status==="applied"||a.status==="target"?"screen":a.status, next:{text:"Interview: confirm time, then run Prepare next step", date:today()}}, (a.prep&&a.prep.status)?{}:{prep:{status:"requested",date:today()}})); }
       else if(d.type==="offer"){ await sUpdate("apps",id,{status:"offer", next:{text:"Review the salary plan, then counter", date:today()}}); }
       else if(d.type==="auto_ack"){ if(a.status==="target") await sUpdate("apps",id,{status:"applied", applied:today()}); }
       btn.textContent="Updated";
