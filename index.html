@@ -1103,7 +1103,7 @@ function renderQ(){
   wireStoryPills($("#qList")); wireHear($("#qList"));
   $("#qList").querySelectorAll("[data-practise]").forEach(b=>b.addEventListener("click",()=>{ setRehearse(b.dataset.practise); location.hash="rehearse"; }));
 }
-function interviewApps(){ return appsArr().filter(a=>a.id===BASE_ID||["screen","interview","offer"].includes(a.status)||byApp("rounds",a.id).length).sort((x,y)=>(x.id===BASE_ID)-(y.id===BASE_ID)||String(y.added||y.applied||"").localeCompare(String(x.added||x.applied||""))); }
+function interviewApps(){ const live=a=>["screen","interview","offer"].includes(a.status)?0:a.id===BASE_ID?1:2; return appsArr().filter(a=>a.id===BASE_ID||["screen","interview","offer"].includes(a.status)||byApp("rounds",a.id).length).sort((x,y)=>live(x)-live(y)||String(y.added||y.applied||"").localeCompare(String(x.added||x.applied||""))); }
 function renderCompanies(){
   const el=$("#qCompanyWrap"); if(!el) return;
   const list=interviewApps();
@@ -1124,7 +1124,7 @@ function renderCompanies(){
      ${p&&(p.roleQuestions||[]).length?`<div><div class="k">Questions for this role</div><ol class="clean small">${p.roleQuestions.map(q=>`<li><b>${esc(q.q)}</b>${q.why?`<br><span class="muted">Why: ${esc(q.why)}</span>`:""}${q.trap?`<br><span style="color:#c0392b">Trap: ${esc(q.trap)}</span>`:""}</li>`).join("")}</ol></div>`:""}
      ${stories.length?`<div><div class="k">Stories to lead with</div><ol class="clean small">${stories.map(([id,s])=>{const so=storyById(id); return `<li><b>${esc(so?so.title:id)}</b>${s.angle?`: ${esc(s.angle)}`:""}${s.bridge?`<br><span class="muted">${esc(s.bridge)}</span>`:""}</li>`;}).join("")}</ol></div>`:""}
      ${plan&&(plan.focus||[]).length?`<div><div class="k">Your 30/60/90 plan</div><ol class="clean small">${plan.focus.map((f,i)=>`<li><b>Days ${[ "1 to 30","31 to 60","61 to 90"][i]||""}:</b> ${esc(f)}</li>`).join("")}</ol></div>`:""}
-     ${!p?`<div class="small muted">${st==="loading"||!st?"Loading the full pack...":"No prep pack yet. It builds when the interview invite is logged."}</div>`:""}
+     ${!p?`<div class="small muted">${st==="loading"||!st?"Loading the full pack...":(["screen","interview","offer"].includes(a.status)?"No prep pack yet. It builds after the next feed run.":"Past interview, kept as history.")}</div>`:""}
      ${p&&(p.sources||[]).length?`<div class="note sources">Sources: ${p.sources.slice(0,8).map(s=>s.u?`<a href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.t||s.u)}</a>`:esc(s.t||"")).join(" | ")}</div>`:""}
      <div class="row"><button class="btn sm primary" data-cpractise="${esc(a.id)}">Practise for ${esc(a.company)}</button></div>
     </details>`;}).join("");
