@@ -819,7 +819,7 @@ function route(){
 }
 
 /* ---------- ANSWER BUILDER (coach method) ---------- */
-let PROFILE=null, PROFILE_ST="";
+let PROFILE=null, PROFILE_ST="", BQ="";
 async function loadProfile(){
   if(PROFILE||PROFILE_ST==="loading") return PROFILE;
   if(STORE.mode!=="gh"||!GH.token){ PROFILE_ST=GH.token?"":"nogh"; return null; }
@@ -828,44 +828,129 @@ async function loadProfile(){
   renderBuilder(); return PROFILE;
 }
 const PARTS={1:"Part A: The opening questions",6:"Part B: Your big stories",15:"Part C: How you do the job"};
-function builderCard(x){
-  let words=((STORE.data.words||{})["q"+x.n]||{}).text||""; if(!words){ try{ words=localStorage.getItem("im_words_"+x.n)||""; }catch(e){} }
+/* audio with real pauses at every / */
+const AUD={playing:false};
+function sayPaused(text){
+  try{
+    speechSynthesis.cancel();
+    const chunks=String(text||"").replace(/\n+/g," / ").split(/\s*\/\s*|(?<=[.!?])\s+/).map(t=>t.trim()).filter(Boolean);
+    const v=speechSynthesis.getVoices().find(v=>/en-CA/i.test(v.lang))||speechSynthesis.getVoices().find(v=>/^en/i.test(v.lang));
+    chunks.forEach((c,i)=>{ const u=new SpeechSynthesisUtterance(c); u.lang="en-CA"; u.rate=0.9; if(v) u.voice=v; if(i===chunks.length-1) u.onend=()=>{AUD.playing=false;}; speechSynthesis.speak(u); });
+    AUD.playing=true;
+  }catch(e){ speak(text); }
+}
+function audPause(){ try{ if(speechSynthesis.paused) speechSynthesis.resume(); else speechSynthesis.pause(); }catch(e){} }
+function audStop(){ try{ speechSynthesis.cancel(); }catch(e){} AUD.playing=false; }
+const audBar=(key,label)=>`<div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm" data-aplay="${key}">&#9654; ${label||"Hear it"}</button><button class="btn sm ghost" data-apause="1">&#10074;&#10074; Pause / resume</button><button class="btn sm ghost" data-astop="1">&#9632; Stop</button></div>`;
+function shortOf(x){ if(x.short30) return x.short30; const s=(x.sample||[]); const pick=s.filter(p=>/hook|result|fit|close/i.test(p.label||"")); return (pick.length?pick:s.slice(0,2)).map(p=>p.text).join(" / "); }
+function fullOf(x){ return (x.sample||[]).map(p=>p.text).join(" / "); }
+/* instant stress test against the coach rules */
+function stressLocal(text,x){
+  const t=String(text||"").trim(); if(t.length<20) return null;
+  const words=t.split(/\s+/).filter(Boolean).length, secs=Math.round(words/2.3);
+  const limit=/Background/.test(x.shape)?90:120, out=[];
+  if(secs>limit) out.push(["Too long",`About ${secs} seconds. Aim for under ${limit}. Cut to one story.`]);
+  const we=(t.match(/\b(we|our team)\b/gi)||[]).length; if(we>1) out.push(["Say I, not we",`"we" appears ${we} times. Say "I built", "I led".`]);
+  if(/very good|excellent result|great result|amazing|huge success/i.test(t)) out.push(["Do not judge your result","Say the number, then stop. Let them say very good."]);
+  if(!/\d/.test(t)&&!/Steps|Method|Daily/.test(x.shape)) out.push(["No number","Every story needs one real number."]);
+  const cos=["Vodafone","Mortimer Harvey","AXA","Total","MG Business","Rusintco"].filter(c=>new RegExp(c,"i").test(t)); if(/Problem/.test(x.shape)&&cos.length>1) out.push(["More than one company","Pick one story. You named "+cos.join(", ")+"."]);
+  if(/[–—]/.test(t)) out.push(["Dashes","Use full stops or commas instead of dashes."]);
+  if(/\b(19|20)\d{2}\b|\b\d{2}\+?\s*years\b/i.test(t)) out.push(["Age signal","Remove years and long tenure numbers."]);
+  const longS=t.split(/[.!?]/).filter(s=>s.trim().split(/\s+/).length>20).length; if(longS) out.push(["Long sentences",`${longS} sentence${longS>1?"s are":" is"} over 20 words. Short sentences are easier to say.`]);
+  if(/\b(basically|actually|you know|kind of|sort of|I think)\b/i.test(t)) out.push(["Filler words","Remove basically, actually, you know, I think."]);
+  if(/Problem/.test(x.shape)&&!/(problem|challenge|risk|fight|losing|hard|stuck|not working|did not)/i.test(t)) out.push(["No drama","Start with the problem: what was at stake, who you fought."]);
+  const score=Math.max(0,10-out.length*1.5);
+  return {score:Math.round(score*10)/10,secs,words,issues:out};
+}
+function enhancePrompt(x,key,text,a){
+  const ab=(PROFILE&&PROFILE.answerBuilder)||{}; const jd=a&&a.jd?a.jd.slice(0,4000):"";
+  return `Enhance my interview answer in my Interview Model (Answer Builder, coach method).
+
+ROLE: ${a?`${a.role||""} at ${a.company}`:"Salesforce Sales Programs Senior Manager (base model)"}
+QUESTION ${x.n}: ${x.q}
+SHAPE: ${x.shape}   WHY THEY ASK: ${x.why}
+COACH RULES: ${(ab.rules||[]).join(" ")}
+DRAMA QUESTIONS: ${(x.drama||[]).map(d=>d.q+(d.a?` (my answer: ${d.a})`:"")).join(" | ")}
+SAMPLE ANSWER: ${fullOf(x)}
+
+MY WORDS:
+${text}
+
+Do this:
+1. Reread the job description${jd?" below":` (read data/apps.json record "${a?a.id:"sfdc"}" in MG4Trading/interview-model-data, or fetch its link)`} and search the web for the company's current priorities, so the answer fits this role.
+2. Rewrite MY WORDS into a final answer: same shape, my stories, only verified figures from data/profile.json (locked numbers), short simple sentences a child could follow, "I" not "we", the number said once then stop, no dashes, no age signals, Canadian spelling, mark short pauses with /. Keep it under ${/Background/.test(x.shape)?90:120} seconds, and add a 30 second version.
+3. Stress test it: score out of 10 on shape, drama, one story, I not we, the number, length, and fit to the job; list the 2 weakest points with the fix; give the 3 follow-up questions they are most likely to ask, each with a short answer.
+4. Save it with the Composio GitHub toolkit to data/words.json in MG4Trading/interview-model-data, key "${key}" (re-read and merge first; keep "text"): set final, final30, stress {score, notes[], followups[{q,a}]}, status "ready", date.
+Then show me the final answer here.${jd?`\n\nJOB DESCRIPTION:\n${jd}`:""}`;
+}
+function builderCard(x,key,a){
+  const W=(STORE.data.words||{})[key]||{};
+  let words=W.text||""; if(!words){ try{ words=localStorage.getItem("im_words_"+key)||""; }catch(e){} }
   const drama=(x.drama||[]).map(d=>`<li>${esc(d.q)}${d.a?`<br><span style="color:#2e7d32"><i>Your answer: ${esc(d.a)}</i></span>`:""}</li>`).join("");
   const sample=(x.sample||[]).map(s=>`<p style="margin:6px 0">${s.label?`<b style="color:var(--accent)">${esc(s.label)}</b> `:""}${esc(s.text)}</p>`).join("");
-  return `<details class="card" data-bq="${x.n}" style="gap:8px">
-   <summary style="cursor:pointer"><b style="font-size:17px">Q${x.n}. ${esc(x.q)}</b></summary>
+  const st=W.stress;
+  return `<details class="card" data-bq="${x.n}" data-bkey="${esc(key)}" style="gap:10px">
+   <summary style="cursor:pointer"><b style="font-size:17px">Q${x.n}. ${esc(x.q)}</b>${W.final?` <span class="chip" style="color:#2e7d32;border-color:#2e7d32">Final ready</span>`:W.status==="requested"?` <span class="chip">Enhancing</span>`:""}</summary>
    <div class="small"><b>Shape:</b> <span class="chip" style="font-weight:700">${esc(x.shape)}</span> &nbsp; <b>Why they ask:</b> <i>${esc(x.why)}</i></div>
-   ${drama?`<div><div class="k">Answer these first (they give your story its drama)</div><ul class="clean small">${drama}</ul></div>`:""}
-   <div style="background:var(--card2,#f4f7fb);border-left:4px solid var(--accent);padding:10px 12px;border-radius:8px">
-     <div class="k">Sample answer. Read the / as a short pause.</div>${sample}
-     ${x.short30?`<div class="k" style="margin-top:8px">30-second version</div><p style="margin:6px 0">${esc(x.short30)}</p>`:""}
-     <button class="btn sm ghost" data-bhear="${x.n}">Hear it</button>
+   <div style="border:2px solid var(--accent);border-radius:10px;padding:10px 12px">
+     <div class="k">Short answer (30 seconds)</div><p style="margin:6px 0;font-size:16px">${esc(shortOf(x))}</p>${audBar("short:"+key,"Hear short")}
    </div>
+   ${drama?`<div><div class="k">Answer these first (they give your story its drama)</div><ul class="clean small">${drama}</ul></div>`:""}
+   <details style="background:var(--card2,#f4f7fb);border-left:4px solid var(--accent);padding:8px 12px;border-radius:8px"><summary class="small" style="cursor:pointer"><b>Full sample answer. Read the / as a short pause.</b></summary>${sample}${audBar("full:"+key,"Hear full")}</details>
    ${x.tip?`<div class="small"><b>Coach tip:</b> ${esc(x.tip)}</div>`:""}
-   <label class="small"><b>Your words:</b><textarea data-bwords="${x.n}" style="min-height:90px" placeholder="Write it in your own words, then say it out loud.">${esc(words)}</textarea></label>
+   <label class="small"><b>Your words:</b><textarea data-bwords="${esc(key)}" style="min-height:100px" placeholder="Write it in your own words, then stress test it.">${esc(words)}</textarea></label>
+   <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm" data-bstress="${esc(key)}">Stress test</button><button class="btn sm primary" data-benhance="${esc(key)}">Enhance with Claude</button>${words?audBar("mine:"+key,"Hear mine").replace('<div class="row" style="gap:6px;flex-wrap:wrap">','').replace(/<\/div>$/,""):""}</div>
+   <div data-bsout="${esc(key)}"></div>
+   ${W.final?`<div style="background:#e8f5e9;border:2px solid #2e7d32;border-radius:10px;padding:10px 12px">
+     <div class="k" style="color:#2e7d32">Final answer${W.date?` (${esc(fmtDate(W.date))})`:""}</div><p style="margin:6px 0;color:#1b5e20;font-size:16px;white-space:pre-wrap">${esc(W.final)}</p>
+     ${W.final30?`<div class="k" style="color:#2e7d32">30 seconds</div><p style="margin:6px 0;color:#1b5e20">${esc(W.final30)}</p>`:""}
+     ${audBar("final:"+key,"Hear final")}
+     ${st?`<div class="small" style="margin-top:6px"><b>Stress test: ${esc(String(st.score))}/10.</b> ${(st.notes||[]).map(esc).join(" ")}</div>${(st.followups||[]).length?`<div class="small"><b>Likely follow-ups:</b><ol class="clean">${st.followups.map(f=>`<li><b>${esc(f.q||f)}</b>${f.a?`<br>${esc(f.a)}`:""}</li>`).join("")}</ol></div>`:""}`:""}
+     <button class="btn sm ghost" data-buse="${esc(key)}">Use as my words</button></div>`:""}
   </details>`;
 }
 function renderBuilder(){
-  const el=$("#qBuilderWrap"); if(!el) return; if(el.contains(document.activeElement)&&document.activeElement.tagName==="TEXTAREA") return;
+  const el=$("#qBuilderWrap"); if(!el) return; if(el.contains(document.activeElement)&&/TEXTAREA|INPUT/.test(document.activeElement.tagName)) return;
   const openQ=new Set([...el.querySelectorAll("details[open][data-bq]")].map(d=>d.dataset.bq));
   if(!PROFILE){ el.innerHTML = (GH.token&&PROFILE_ST!=="err")?`<div class="small muted">Loading your Answer Builder...</div>`:`<div class="card small">Connect GitHub (Sync with GitHub, at the bottom of Pipeline) to load your Answer Builder.</div>`; if(PROFILE_ST!=="loading"&&PROFILE_ST!=="err") loadProfile(); return; }
   const fa=focusApp(); if(fa&&fa.id!==BASE_ID&&!PACKS[fa.id]&&STORE.mode==="gh") loadPack(fa.id).then(()=>renderBuilder());
   const fp=fa&&(PACKS[fa.id]||{}).st==="ok"?PACKS[fa.id].d:null;
   const ab=(fp&&fp.builder&&(fp.builder.questions||[]).length)?fp.builder:PROFILE.answerBuilder; if(!ab){ el.innerHTML=`<div class="card small">No Answer Builder saved yet.</div>`; return; }
   const a=fa; const tailored=ab!==PROFILE.answerBuilder; const other=a&&a.id!==BASE_ID&&!tailored;
+  const pre=tailored?a.id+":":"";
+  const jd=(a&&a.jd)||"";
   let html=`<div class="card" style="text-align:center;background:#fff8e7"><b style="color:#c0392b;font-size:18px">Big stories. Small words. Real numbers.</b><div class="small">Learn the shape, not the words. One story per answer. Say "I", not "we". Say the number, then stop. Land it in 1 to 2 minutes.</div></div>
+  <input type="text" id="bSearch" placeholder="Search questions and answers, for example conflict, data, 45%" value="${esc(BQ)}" aria-label="Search the answer builder">
+  <details class="card small"><summary style="cursor:pointer"><b>Reread the job description${a?`: ${esc(a.company)}`:""}</b></summary>${jd?`<div style="white-space:pre-wrap;max-height:50vh;overflow:auto">${esc(jd)}</div>`:`<p>No job description saved for this role yet. Paste it in Decode and tap Save to pipeline, or ask Claude to fetch it.</p>`}${a&&a.link?`<p><a href="${esc(a.link)}" target="_blank" rel="noopener">Open the job ad</a></p>`:""}</details>
   <details class="card small"><summary style="cursor:pointer"><b>The two shapes and the drama checklist</b></summary>
-   <p><b>Background, Achievement, Fit:</b> for "Tell me about yourself". Background shows how big you are (budgets, team, partners). Achievement is one story with a number. Fit is why them, from the heart.</p>
+   <p><b>Background, Achievement, Fit:</b> for "Tell me about yourself". Background shows how big you are. Achievement is one story with a number. Fit is why them, from the heart.</p>
    <p><b>Problem, Solution, Result:</b> for every "Tell me about a time". Problem = what was at stake and who you fought. Solution = what YOU did, 2 or 3 steps. Result = the number, then stop.</p>
    <p><b>Drama checklist:</b> stakes, enemy, complexity, your role ("I"), the number said slowly.</p></details>
   ${tailored?`<div class="card small" style="border:2px solid var(--accent)"><b>Tailored for ${esc(a.company)}</b>: ${esc(a.role||"")}. Same stories, rewritten for this company, role and job.</div>`:""}
-  ${other?`<div class="card small">These are your base answers (Salesforce). For <b>${esc(a.company)}</b>, keep the stories and change only the Fit and Link lines. The ${esc(a.company)} version of every question is under <b>By stage</b>.</div>`:""}`;
-  (ab.questions||[]).forEach(x=>{ if(PARTS[x.n]) html+=`<h3 style="margin:14px 0 4px;color:#c0392b">${PARTS[x.n]}</h3>`; html+=builderCard(x); });
+  ${other?`<div class="card small">These are your base answers (Salesforce). The ${esc(a.company)} version builds with its prep pack.</div>`:""}`;
+  const q=BQ.toLowerCase().trim();
+  (ab.questions||[]).forEach(x=>{ const key=pre+"q"+x.n; const W=(STORE.data.words||{})[key]||{};
+    if(q&&!JSON.stringify(x).toLowerCase().includes(q)&&!String(W.text||"").toLowerCase().includes(q)&&!String(W.final||"").toLowerCase().includes(q)) return;
+    if(PARTS[x.n]&&!q) html+=`<h3 style="margin:14px 0 4px;color:#c0392b">${PARTS[x.n]}</h3>`; html+=builderCard(x,key,a); });
   el.innerHTML=html;
   openQ.forEach(n=>{ const d=el.querySelector(`details[data-bq="${n}"]`); if(d) d.open=true; });
-  el.querySelectorAll("[data-bwords]").forEach(t=>t.addEventListener("input",()=>{ const id="q"+t.dataset.bwords; try{ localStorage.setItem("im_words_"+t.dataset.bwords,t.value); }catch(e){}
-    clearTimeout(t._tm); t._tm=setTimeout(()=>{ const d={text:t.value,updated:today()}; STORE.data.words[id]=d; if(STORE.mode==="gh") ghQueue("words",{t:"set",id,d}); else saveLocal2(); },1200); }));
-  el.querySelectorAll("[data-bhear]").forEach(b=>b.addEventListener("click",e=>{ e.preventDefault(); const x=(ab.questions||[]).find(q=>String(q.n)===b.dataset.bhear); if(x) speak((x.sample||[]).map(s=>s.text).join(" ").replace(/\s*\/\s*/g,", ")); }));
+  const findX=k=>{ const n=+String(k).split("q").pop(); return (ab.questions||[]).find(z=>z.n===n); };
+  const sv=$("#bSearch"); sv.addEventListener("input",()=>{ BQ=sv.value; clearTimeout(sv._t); sv._t=setTimeout(()=>{ const pos=sv.selectionStart; sv.blur(); renderBuilder(); const n=$("#bSearch"); if(n){ n.focus(); try{n.setSelectionRange(pos,pos);}catch(e){} } },350); });
+  const saveW=(key,patch)=>{ const d=Object.assign({},STORE.data.words[key]||{},patch,{updated:today()}); STORE.data.words[key]=d; if(STORE.mode==="gh") ghQueue("words",{t:"set",id:key,d}); else saveLocal2(); };
+  el.querySelectorAll("[data-bwords]").forEach(t=>t.addEventListener("input",()=>{ const key=t.dataset.bwords; try{ localStorage.setItem("im_words_"+key,t.value); }catch(e){} clearTimeout(t._tm); t._tm=setTimeout(()=>saveW(key,{text:t.value}),1200); }));
+  el.querySelectorAll("[data-aplay]").forEach(b=>b.addEventListener("click",e=>{ e.preventDefault(); const [kind,...rest]=b.dataset.aplay.split(":"); const key=rest.join(":"); const x=findX(key); const W=STORE.data.words[key]||{};
+    const txt=kind==="short"?shortOf(x):kind==="full"?fullOf(x):kind==="final"?W.final:(el.querySelector(`[data-bwords="${key}"]`)||{}).value; if(txt) sayPaused(txt); }));
+  el.querySelectorAll("[data-apause]").forEach(b=>b.addEventListener("click",e=>{ e.preventDefault(); audPause(); }));
+  el.querySelectorAll("[data-astop]").forEach(b=>b.addEventListener("click",e=>{ e.preventDefault(); audStop(); }));
+  el.querySelectorAll("[data-bstress]").forEach(b=>b.addEventListener("click",()=>{ const key=b.dataset.bstress; const x=findX(key); const txt=(el.querySelector(`[data-bwords="${key}"]`)||{}).value||""; const r=stressLocal(txt,x); const out=el.querySelector(`[data-bsout="${key}"]`);
+    out.innerHTML = !r?`<div class="small muted">Write at least one sentence first.</div>`:`<div class="card small" style="gap:4px"><b>Quick stress test: ${r.score}/10</b> <span class="muted">(${r.words} words, about ${r.secs} seconds)</span>${r.issues.length?`<ul class="clean">${r.issues.map(([h,f])=>`<li><b style="color:#c0392b">${esc(h)}.</b> ${esc(f)}</li>`).join("")}</ul>`:`<div style="color:#2e7d32">Clean against the coach rules. Tap Enhance with Claude for the deep test and likely follow-ups.</div>`}</div>`; }));
+  el.querySelectorAll("[data-benhance]").forEach(b=>b.addEventListener("click",()=>{ const key=b.dataset.benhance; const x=findX(key); const txt=(el.querySelector(`[data-bwords="${key}"]`)||{}).value||""; const out=el.querySelector(`[data-bsout="${key}"]`);
+    if(txt.trim().length<20){ out.innerHTML=`<div class="small muted">Write your words first, then enhance.</div>`; return; }
+    const p=enhancePrompt(x,key,txt,a&&a.id!==BASE_ID?a:null); saveW(key,{text:txt,status:"requested",requested:today()});
+    try{ navigator.clipboard.writeText(p).catch(()=>{}); }catch(e){}
+    out.innerHTML=`<div class="card small">Prompt copied. Paste it in the Claude project that opened: Claude rereads the job, searches the company, rewrites your answer and saves the final here in green. If you skip it, the next feed run (6:47 am or 4:47 pm) does it.<details><summary>Prompt (if the copy did not work, select and copy)</summary><textarea style="min-height:120px">${esc(p)}</textarea></details></div>`;
+    window.open(CLAUDE_PROJECT,"_blank"); }));
+  el.querySelectorAll("[data-buse]").forEach(b=>b.addEventListener("click",()=>{ const key=b.dataset.buse; const W=STORE.data.words[key]||{}; const t=el.querySelector(`[data-bwords="${key}"]`); if(t&&W.final){ t.value=W.final; saveW(key,{text:W.final}); } }));
 }
 
 /* ---------- DECODE BRIEF (7 checks) ---------- */
