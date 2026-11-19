@@ -1103,17 +1103,32 @@ function renderQ(){
   wireStoryPills($("#qList")); wireHear($("#qList"));
   $("#qList").querySelectorAll("[data-practise]").forEach(b=>b.addEventListener("click",()=>{ setRehearse(b.dataset.practise); location.hash="rehearse"; }));
 }
+function interviewApps(){ return appsArr().filter(a=>a.id===BASE_ID||["screen","interview","offer"].includes(a.status)||byApp("rounds",a.id).length).sort((x,y)=>(x.id===BASE_ID)-(y.id===BASE_ID)||String(y.added||y.applied||"").localeCompare(String(x.added||x.applied||""))); }
 function renderCompanies(){
-  $("#qCompanyWrap").innerHTML = COMPANIES.map(c => `
-  <div class="card">
-    <h3>${esc(c.name)}</h3>
-    <div class="grid2">
-      <div><div class="k">Reported process</div><ol class="clean">${c.flow.map(f=>`<li>${esc(f)}</li>`).join("")}</ol></div>
-      <div><div class="k">Reported questions</div><ul class="clean">${c.asked.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></div>
-    </div>
-    <div class="why"><div class="k">How to use it</div><ul class="clean">${c.tips.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></div>
-    ${c.src.length?`<div class="note sources">Sources: ${c.src.map(([t,u])=>`<a href="${u}" target="_blank" rel="noopener">${esc(t)}</a>`).join(" | ")}. Candidate reports vary by team and year.</div>`:""}
-  </div>`).join("");
+  const el=$("#qCompanyWrap"); if(!el) return;
+  const list=interviewApps();
+  if(!list.length){ el.innerHTML=`<div class="card small">No interviews yet. A company pack appears here as soon as a role gets an interview invite.</div>`; return; }
+  list.forEach(a=>{ if(!PACKS[a.id]&&STORE.mode==="gh") loadPack(a.id).then(()=>renderCompanies()); });
+  el.innerHTML=`<div class="small muted">Full packs for companies you have interviewed with or will interview with.</div>`+list.map(a=>{
+    const st=(PACKS[a.id]||{}).st, p=st==="ok"?PACKS[a.id].d:null;
+    const ref=COMPANIES.find(c=>c.src.length&&a.company.toLowerCase().includes(c.name.toLowerCase().split(" ")[0]));
+    const rounds=byApp("rounds",a.id).sort((x,y)=>(x.date||"").localeCompare(y.date||""));
+    const stories=p&&p.stories?Object.entries(p.stories).sort((x,y)=>(x[1].rank||9)-(y[1].rank||9)).slice(0,5):[];
+    const plan=p&&p.showcase&&p.showcase.plan;
+    return `<details class="card" ${a.id===(focusApp()||{}).id?"open":""}>
+     <summary style="cursor:pointer"><b style="font-size:17px">${esc(a.company)}</b>: ${esc(a.role||"")} <span class="chip">${a.id===BASE_ID?"Base model":esc(STATUS[a.status]||a.status)}</span></summary>
+     ${a.purpose?`<p><b>Why the role exists:</b> ${esc(a.purpose)}</p>`:""}
+     ${p&&p.brief?`<div class="why"><div class="k">Brief</div><div class="small" style="white-space:pre-wrap">${esc(Array.isArray(p.brief)?p.brief.join("\n"):p.brief)}</div></div>`:""}
+     ${rounds.length?`<div><div class="k">Your rounds</div><ul class="clean small">${rounds.map(r=>`<li>${esc(fmtDate(r.date))}: ${esc(SH_STAGES[r.stage]||r.stage)}${r.who?" with "+esc(r.who):""}${r.outcome?" ("+esc(r.outcome)+")":""}</li>`).join("")}</ul></div>`:""}
+     ${ref?`<div class="grid2"><div><div class="k">Reported process</div><ol class="clean small">${ref.flow.map(f=>`<li>${esc(f)}</li>`).join("")}</ol></div><div><div class="k">Reported questions</div><ul class="clean small">${ref.asked.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></div></div>`:""}
+     ${p&&(p.roleQuestions||[]).length?`<div><div class="k">Questions for this role</div><ol class="clean small">${p.roleQuestions.map(q=>`<li><b>${esc(q.q)}</b>${q.why?`<br><span class="muted">Why: ${esc(q.why)}</span>`:""}${q.trap?`<br><span style="color:#c0392b">Trap: ${esc(q.trap)}</span>`:""}</li>`).join("")}</ol></div>`:""}
+     ${stories.length?`<div><div class="k">Stories to lead with</div><ol class="clean small">${stories.map(([id,s])=>{const so=storyById(id); return `<li><b>${esc(so?so.title:id)}</b>${s.angle?`: ${esc(s.angle)}`:""}${s.bridge?`<br><span class="muted">${esc(s.bridge)}</span>`:""}</li>`;}).join("")}</ol></div>`:""}
+     ${plan&&(plan.focus||[]).length?`<div><div class="k">Your 30/60/90 plan</div><ol class="clean small">${plan.focus.map((f,i)=>`<li><b>Days ${[ "1 to 30","31 to 60","61 to 90"][i]||""}:</b> ${esc(f)}</li>`).join("")}</ol></div>`:""}
+     ${!p?`<div class="small muted">${st==="loading"||!st?"Loading the full pack...":"No prep pack yet. It builds when the interview invite is logged."}</div>`:""}
+     ${p&&(p.sources||[]).length?`<div class="note sources">Sources: ${p.sources.slice(0,8).map(s=>s.u?`<a href="${esc(s.u)}" target="_blank" rel="noopener">${esc(s.t||s.u)}</a>`:esc(s.t||"")).join(" | ")}</div>`:""}
+     <div class="row"><button class="btn sm primary" data-cpractise="${esc(a.id)}">Practise for ${esc(a.company)}</button></div>
+    </details>`;}).join("");
+  el.querySelectorAll("[data-cpractise]").forEach(b=>b.addEventListener("click",()=>{ FOCUS=b.dataset.cpractise; try{ localStorage.setItem(LSF,FOCUS); }catch(e){} applyFocus(); location.hash="rehearse"; }));
 }
 
 /* ---------- STORIES: visual question wall, connection map, proof wall, story cards ---------- */
@@ -2091,6 +2106,7 @@ $("#qMode").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=
   $("#qMode").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", String(x===b)));
   $("#qBuilderWrap").classList.toggle("hidden", m!=="builder"); $("#qStageWrap").classList.toggle("hidden", m!=="stage"); $("#qCompanyWrap").classList.toggle("hidden", m!=="company");
   if(m==="builder") renderBuilder();
+  if(m==="company") renderCompanies();
 }));
 $("#rNext").addEventListener("click", nextQ);
 $("#rStart").addEventListener("click", toggleTimer);
