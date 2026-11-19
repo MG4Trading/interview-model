@@ -829,7 +829,7 @@ async function loadProfile(){
 }
 const PARTS={1:"Part A: The opening questions",6:"Part B: Your big stories",15:"Part C: How you do the job"};
 function builderCard(x){
-  let words=""; try{ words=localStorage.getItem("im_words_"+x.n)||""; }catch(e){}
+  let words=((STORE.data.words||{})["q"+x.n]||{}).text||""; if(!words){ try{ words=localStorage.getItem("im_words_"+x.n)||""; }catch(e){} }
   const drama=(x.drama||[]).map(d=>`<li>${esc(d.q)}${d.a?`<br><span style="color:#2e7d32"><i>Your answer: ${esc(d.a)}</i></span>`:""}</li>`).join("");
   const sample=(x.sample||[]).map(s=>`<p style="margin:6px 0">${s.label?`<b style="color:var(--accent)">${esc(s.label)}</b> `:""}${esc(s.text)}</p>`).join("");
   return `<details class="card" data-bq="${x.n}" style="gap:8px">
@@ -846,7 +846,8 @@ function builderCard(x){
   </details>`;
 }
 function renderBuilder(){
-  const el=$("#qBuilderWrap"); if(!el) return;
+  const el=$("#qBuilderWrap"); if(!el) return; if(el.contains(document.activeElement)&&document.activeElement.tagName==="TEXTAREA") return;
+  const openQ=new Set([...el.querySelectorAll("details[open][data-bq]")].map(d=>d.dataset.bq));
   if(!PROFILE){ el.innerHTML = (GH.token&&PROFILE_ST!=="err")?`<div class="small muted">Loading your Answer Builder...</div>`:`<div class="card small">Connect GitHub (Sync with GitHub, at the bottom of Pipeline) to load your Answer Builder.</div>`; if(PROFILE_ST!=="loading"&&PROFILE_ST!=="err") loadProfile(); return; }
   const ab=PROFILE.answerBuilder; if(!ab){ el.innerHTML=`<div class="card small">No Answer Builder saved yet.</div>`; return; }
   const a=focusApp(); const other=a&&a.id!==BASE_ID;
@@ -858,7 +859,9 @@ function renderBuilder(){
   ${other?`<div class="card small">These are your base answers (Salesforce). For <b>${esc(a.company)}</b>, keep the stories and change only the Fit and Link lines. The ${esc(a.company)} version of every question is under <b>By stage</b>.</div>`:""}`;
   (ab.questions||[]).forEach(x=>{ if(PARTS[x.n]) html+=`<h3 style="margin:14px 0 4px;color:#c0392b">${PARTS[x.n]}</h3>`; html+=builderCard(x); });
   el.innerHTML=html;
-  el.querySelectorAll("[data-bwords]").forEach(t=>t.addEventListener("input",()=>{ try{ localStorage.setItem("im_words_"+t.dataset.bwords,t.value); }catch(e){} }));
+  openQ.forEach(n=>{ const d=el.querySelector(`details[data-bq="${n}"]`); if(d) d.open=true; });
+  el.querySelectorAll("[data-bwords]").forEach(t=>t.addEventListener("input",()=>{ const id="q"+t.dataset.bwords; try{ localStorage.setItem("im_words_"+t.dataset.bwords,t.value); }catch(e){}
+    clearTimeout(t._tm); t._tm=setTimeout(()=>{ const d={text:t.value,updated:today()}; STORE.data.words[id]=d; if(STORE.mode==="gh") ghQueue("words",{t:"set",id,d}); else saveLocal2(); },1200); }));
   el.querySelectorAll("[data-bhear]").forEach(b=>b.addEventListener("click",e=>{ e.preventDefault(); const x=(ab.questions||[]).find(q=>String(q.n)===b.dataset.bhear); if(x) speak((x.sample||[]).map(s=>s.text).join(" ").replace(/\s*\/\s*/g,", ")); }));
 }
 
@@ -1534,8 +1537,8 @@ function addDays(iso,n){ const d=new Date(iso+"T12:00:00"); d.setDate(d.getDate(
 function fmtDate(iso){ if(!iso) return ""; try{ return new Date(iso+"T12:00:00").toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"}); }catch(e){ return iso; } }
 
 /* ---------- PIPELINE: data store ---------- */
-const COLS = ["apps","rounds","signals","lessons"];
-const STORE = {mode:"local", data:{apps:{},rounds:{},signals:{},lessons:{}}};
+const COLS = ["apps","rounds","signals","lessons","words"];
+const STORE = {mode:"local", data:{apps:{},rounds:{},signals:{},lessons:{},words:{}}};
 const LS2 = "im_store_v2";
 const LANES = {revops:"RevOps / Sales Ops", channel:"Channel / Partner", strategy:"Strategy / Market entry", sales:"Sales leadership / BD", analytics:"Analytics / Marketing", other:"Other"};
 const STATUS = {shortlist:"Shortlisted", target:"Target", applied:"Applied", screen:"Screening", interview:"Interviewing", offer:"Offer", rejected:"Not selected", withdrawn:"Withdrawn", ghosted:"No response"};
@@ -1567,7 +1570,7 @@ const byApp = (col,id) => Object.entries(STORE.data[col]).map(([k,v])=>Object.as
 function saveLocal2(){ try{ localStorage.setItem(LS2, JSON.stringify(STORE.data)); }catch(e){} }
 function loadLocal2(){ try{ const d = JSON.parse(localStorage.getItem(LS2)||"null"); if(d) COLS.forEach(c=>STORE.data[c]=d[c]||{}); }catch(e){} }
 /* GitHub storage: one JSON file per collection in a private repo */
-const GH = {owner:"MG4Trading", repo:"interview-model-data", branch:"main", token:"", sha:{}, ops:{apps:[],rounds:[],signals:[],lessons:[]}, timers:{}, busy:{}};
+const GH = {owner:"MG4Trading", repo:"interview-model-data", branch:"main", token:"", sha:{}, ops:{apps:[],rounds:[],signals:[],lessons:[],words:[]}, timers:{}, busy:{}};
 const LSGH = "im_gh_token";
 function b64dec(t){ const bin=atob(String(t||"").replace(/\s/g,"")); return new TextDecoder().decode(Uint8Array.from(bin,c=>c.charCodeAt(0))); }
 function b64enc(str){ const b=new TextEncoder().encode(str); let bin=""; for(let i=0;i<b.length;i+=0x8000) bin+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000)); return btoa(bin); }
