@@ -234,13 +234,15 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 
 <!-- QUESTIONS -->
 <section class="view" id="v-questions" aria-labelledby="h-q">
-  <h2 id="h-q">2. Question library</h2>
+  <h2 id="h-q">2. Questions</h2>
   <p class="lede">Every question has a hidden purpose. Read the intent first, then the answer structure, then the trap. Tap a story to see the proof that fits.</p>
   <div class="seg" id="qMode" role="group" aria-label="Browse by">
-    <button aria-pressed="true" data-mode="stage">By stage</button>
+    <button aria-pressed="true" data-mode="builder">Answer builder</button>
+    <button aria-pressed="false" data-mode="stage">By stage</button>
     <button aria-pressed="false" data-mode="company">Company packs</button>
   </div>
-  <div id="qStageWrap" class="view on" style="gap:12px">
+  <div id="qBuilderWrap" style="display:flex;flex-direction:column;gap:10px"></div>
+  <div id="qStageWrap" class="view on hidden" style="gap:12px">
     <div class="seg" id="qFilter" role="group" aria-label="Stage filter"></div>
     <input type="text" id="qSearch" placeholder="Search questions, for example forecast, conflict, salary" aria-label="Search questions">
     <div id="qList" style="display:flex;flex-direction:column;gap:10px"></div>
@@ -816,6 +818,50 @@ function route(){
   window.scrollTo(0,0);
 }
 
+/* ---------- ANSWER BUILDER (coach method) ---------- */
+let PROFILE=null, PROFILE_ST="";
+async function loadProfile(){
+  if(PROFILE||PROFILE_ST==="loading") return PROFILE;
+  if(STORE.mode!=="gh"||!GH.token){ PROFILE_ST=GH.token?"":"nogh"; return null; }
+  PROFILE_ST="loading";
+  try{ const j=await ghReq("data/profile.json"); PROFILE=JSON.parse(b64dec(j.content)); PROFILE_ST="ok"; }catch(e){ PROFILE_ST="err"; }
+  renderBuilder(); return PROFILE;
+}
+const PARTS={1:"Part A: The opening questions",6:"Part B: Your big stories",15:"Part C: How you do the job"};
+function builderCard(x){
+  let words=""; try{ words=localStorage.getItem("im_words_"+x.n)||""; }catch(e){}
+  const drama=(x.drama||[]).map(d=>`<li>${esc(d.q)}${d.a?`<br><span style="color:#2e7d32"><i>Your answer: ${esc(d.a)}</i></span>`:""}</li>`).join("");
+  const sample=(x.sample||[]).map(s=>`<p style="margin:6px 0">${s.label?`<b style="color:var(--accent)">${esc(s.label)}</b> `:""}${esc(s.text)}</p>`).join("");
+  return `<details class="card" data-bq="${x.n}" style="gap:8px">
+   <summary style="cursor:pointer"><b style="font-size:17px">Q${x.n}. ${esc(x.q)}</b></summary>
+   <div class="small"><b>Shape:</b> <span class="chip" style="font-weight:700">${esc(x.shape)}</span> &nbsp; <b>Why they ask:</b> <i>${esc(x.why)}</i></div>
+   ${drama?`<div><div class="k">Answer these first (they give your story its drama)</div><ul class="clean small">${drama}</ul></div>`:""}
+   <div style="background:var(--card2,#f4f7fb);border-left:4px solid var(--accent);padding:10px 12px;border-radius:8px">
+     <div class="k">Sample answer. Read the / as a short pause.</div>${sample}
+     ${x.short30?`<div class="k" style="margin-top:8px">30-second version</div><p style="margin:6px 0">${esc(x.short30)}</p>`:""}
+     <button class="btn sm ghost" data-bhear="${x.n}">Hear it</button>
+   </div>
+   ${x.tip?`<div class="small"><b>Coach tip:</b> ${esc(x.tip)}</div>`:""}
+   <label class="small"><b>Your words:</b><textarea data-bwords="${x.n}" style="min-height:90px" placeholder="Write it in your own words, then say it out loud.">${esc(words)}</textarea></label>
+  </details>`;
+}
+function renderBuilder(){
+  const el=$("#qBuilderWrap"); if(!el) return;
+  if(!PROFILE){ el.innerHTML = (GH.token&&PROFILE_ST!=="err")?`<div class="small muted">Loading your Answer Builder...</div>`:`<div class="card small">Connect GitHub (Sync with GitHub, at the bottom of Pipeline) to load your Answer Builder.</div>`; if(PROFILE_ST!=="loading"&&PROFILE_ST!=="err") loadProfile(); return; }
+  const ab=PROFILE.answerBuilder; if(!ab){ el.innerHTML=`<div class="card small">No Answer Builder saved yet.</div>`; return; }
+  const a=focusApp(); const other=a&&a.id!==BASE_ID;
+  let html=`<div class="card" style="text-align:center;background:#fff8e7"><b style="color:#c0392b;font-size:18px">Big stories. Small words. Real numbers.</b><div class="small">Learn the shape, not the words. One story per answer. Say "I", not "we". Say the number, then stop. Land it in 1 to 2 minutes.</div></div>
+  <details class="card small"><summary style="cursor:pointer"><b>The two shapes and the drama checklist</b></summary>
+   <p><b>Background, Achievement, Fit:</b> for "Tell me about yourself". Background shows how big you are (budgets, team, partners). Achievement is one story with a number. Fit is why them, from the heart.</p>
+   <p><b>Problem, Solution, Result:</b> for every "Tell me about a time". Problem = what was at stake and who you fought. Solution = what YOU did, 2 or 3 steps. Result = the number, then stop.</p>
+   <p><b>Drama checklist:</b> stakes, enemy, complexity, your role ("I"), the number said slowly.</p></details>
+  ${other?`<div class="card small">These are your base answers (Salesforce). For <b>${esc(a.company)}</b>, keep the stories and change only the Fit and Link lines. The ${esc(a.company)} version of every question is under <b>By stage</b>.</div>`:""}`;
+  (ab.questions||[]).forEach(x=>{ if(PARTS[x.n]) html+=`<h3 style="margin:14px 0 4px;color:#c0392b">${PARTS[x.n]}</h3>`; html+=builderCard(x); });
+  el.innerHTML=html;
+  el.querySelectorAll("[data-bwords]").forEach(t=>t.addEventListener("input",()=>{ try{ localStorage.setItem("im_words_"+t.dataset.bwords,t.value); }catch(e){} }));
+  el.querySelectorAll("[data-bhear]").forEach(b=>b.addEventListener("click",e=>{ e.preventDefault(); const x=(ab.questions||[]).find(q=>String(q.n)===b.dataset.bhear); if(x) speak((x.sample||[]).map(s=>s.text).join(" ").replace(/\s*\/\s*/g,", ")); }));
+}
+
 /* ---------- DECODE BRIEF (7 checks) ---------- */
 let CONN=null, CONN_ST="";
 const encQ=s=>encodeURIComponent(s||"");
@@ -1337,6 +1383,7 @@ function focusChoices(){
     .sort((x,y)=>(y.id===BASE_ID)-(x.id===BASE_ID)||keep.indexOf(x.status)-keep.indexOf(y.status)||(y.applied||"").localeCompare(x.applied||""));
 }
 function renderFocusBars(){
+  try{ renderBuilder(); }catch(e){}
   const a=focusApp(), ch=focusChoices();
   const opts=ch.map(x=>`<option value="${esc(x.id)}" ${x.id===(a&&a.id)?"selected":""}>${esc(x.company)}: ${esc((x.role||"").slice(0,60))} (${x.id===BASE_ID?"base model":esc(STATUS[x.status]||x.status)})</option>`).join("");
   let info="";
@@ -2037,9 +2084,10 @@ $("#ghForget").addEventListener("click", ()=>{ try{ localStorage.removeItem(LSGH
 $("#btnDecodeQuick").addEventListener("click", ()=>{ deepDecode().catch(()=>{ $("#decodeStatus").textContent="Could not queue the deep decode. Check the GitHub connection."; }); });
 $("#qSearch").addEventListener("input", renderQ);
 $("#qMode").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
-  const company = b.dataset.mode==="company";
+  const m = b.dataset.mode;
   $("#qMode").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed", String(x===b)));
-  $("#qStageWrap").classList.toggle("hidden", company); $("#qCompanyWrap").classList.toggle("hidden", !company);
+  $("#qBuilderWrap").classList.toggle("hidden", m!=="builder"); $("#qStageWrap").classList.toggle("hidden", m!=="stage"); $("#qCompanyWrap").classList.toggle("hidden", m!=="company");
+  if(m==="builder") renderBuilder();
 }));
 $("#rNext").addEventListener("click", nextQ);
 $("#rStart").addEventListener("click", toggleTimer);
