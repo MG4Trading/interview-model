@@ -1292,9 +1292,12 @@ async function loadPack(id){
 }
 function packBlock(q,open){
   const p=pack(); const a=p&&p.answers&&p.answers[q.id]; if(!a) return "";
-  return `<div class="full card" style="gap:8px;border:2px solid var(--accent)"><div class="k">Outstanding answers for ${esc(p.company)}</div>
+  return `<div class="full card" style="gap:8px;border:2px solid var(--accent)"><div class="k">Answer builder for ${esc(p.company)}</div>
    ${a.why?`<div class="why small"><b>Why ${esc(p.company)} asks:</b> ${esc(a.why)}</div>`:""}
+   ${a.shape?`<div class="small"><b>Shape:</b> <span class="chip">${esc(a.shape)}</span></div>`:""}
+   ${(a.drama||[]).length?`<div><div class="k">Answer these first (they give your story its drama)</div><ul class="clean small">${a.drama.map(d=>typeof d==="string"?`<li>${esc(d)}</li>`:`<li>${esc(d.q)}${d.a?`<br><span style="color:#2e7d32"><i>Your answer: ${esc(d.a)}</i></span>`:""}</li>`).join("")}</ul></div>`:""}
    ${(a.answers||[]).map((x,i)=>`<details ${open&&i===1?"open":""} style="border-left:4px solid ${["var(--hr)","var(--hm)","var(--case)"][i]};padding-left:8px"><summary class="small"><b>${"ABC"[i]}. ${esc(x.label||["Short","Full","Stand-out"][i])}</b></summary><p class="small" style="white-space:pre-wrap;margin:6px 0">${esc(x.text)}</p><button class="btn sm ghost" data-hear="${esc(q.id)}" data-hi="${i}">&#128264; Hear it</button></details>`).join("")}
+   ${a.tip?`<div class="small"><b>Coach tip:</b> ${esc(a.tip)}</div>`:""}
    ${(a.solution||[]).length?`<div><div class="k">Solution</div><ol class="clean small">${a.solution.map(t=>`<li>${esc(t)}</li>`).join("")}</ol></div>`:""}
   </div>`;
 }
