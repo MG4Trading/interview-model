@@ -1245,7 +1245,7 @@ const THEMES=[
 ];
 const STORY_KEYS={geo:["forecast","capacity","quota","#1 share","87%"],huntfarm:["hunters","farmers","pipeline"],dash:["dashboard","kpi","attainment"],partner:["partner exit","due diligence","c$20m"],comp:["commission","incentive","c$400k"],crm:["crm","adoption"],cash:["vodafone cash","payments","transactions"],pos:["points of sale","partner network","15,000"],axa:["axa","insurance"],ai:["ai assisted","hubspot","analysis time"],rust:["rusticano","pricing"],siwa:["siwa","market entry"],total:["totalenergies","cx study"],camp:["campaign"],uth:["u-thentic","e-commerce"]};
 const LANE_STORIES={revops:["geo","dash","comp","crm"],channel:["partner","pos"],strategy:["siwa","total"],sales:["huntfarm","pos"],analytics:["dash","total","ai"]};
-const focusApp=()=>FOCUS&&STORE.data.apps[FOCUS]?Object.assign({id:FOCUS},STORE.data.apps[FOCUS]):null;
+const focusApp=()=>{ let id=FOCUS; const r=id&&STORE.data.apps[id]; if(!r||!(id===BASE_ID||["screen","interview","offer"].includes(r.status))) id=STORE.data.apps[BASE_ID]?BASE_ID:""; return id?Object.assign({id},STORE.data.apps[id]):null; };
 function roleText(a){ return [a.role,a.purpose,a.jd,(a.fitWhy||[]).join(" "),(a.fitGaps||[]).join(" "),a.decode?JSON.stringify(a.decode):"",a.lane].join(" ").toLowerCase(); }
 function focusScores(a){
   const t=roleText(a), why=(a.fitWhy||[]).join(" ").toLowerCase(), ss={}, qs={}, themes=[];
@@ -1332,13 +1332,13 @@ function applyFocus(){
   renderQFilter(); renderQ(); renderS(); renderShowcaseControls(); renderShowcase(); renderRStage(); setRehearse(Q[0].id); renderFocusBars();
 }
 function focusChoices(){
-  const keep=["interview","screen","applied","offer","target"];
-  return appsArr().filter(a=>a.id===BASE_ID||keep.includes(a.status)||(a.status==="shortlist"&&(a.triage==="planned"||(a.tailor&&a.tailor.status))))
+  const keep=["offer","interview","screen"];
+  return appsArr().filter(a=>a.id===BASE_ID||keep.includes(a.status))
     .sort((x,y)=>(y.id===BASE_ID)-(x.id===BASE_ID)||keep.indexOf(x.status)-keep.indexOf(y.status)||(y.applied||"").localeCompare(x.applied||""));
 }
 function renderFocusBars(){
   const a=focusApp(), ch=focusChoices();
-  const opts=`<option value="">General practice (no role selected)</option>`+ch.map(x=>`<option value="${esc(x.id)}" ${x.id===FOCUS?"selected":""}>${esc(x.company)}: ${esc((x.role||"").slice(0,60))} (${x.id===BASE_ID?"base model":esc(STATUS[x.status]||x.status)})</option>`).join("");
+  const opts=ch.map(x=>`<option value="${esc(x.id)}" ${x.id===(a&&a.id)?"selected":""}>${esc(x.company)}: ${esc((x.role||"").slice(0,60))} (${x.id===BASE_ID?"base model":esc(STATUS[x.status]||x.status)})</option>`).join("");
   let info="";
   if(a){ const sc=focusScores(a); const tops=STORIES.filter(s=>s._top).slice(0,5);
     const nGap=Q.filter(q=>q.role&&/^r_gap/.test(q.id)).length, nRole=Q.filter(q=>q.role).length;
