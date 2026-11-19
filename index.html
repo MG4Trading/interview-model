@@ -354,6 +354,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
     </form>
   </details>
   <div class="seg" id="pFilter" role="group" aria-label="Pipeline filter"></div>
+  <div class="row small"><span class="muted">Sort:</span><div class="seg" id="pSort" role="group" aria-label="Sort roles"></div></div>
   <div id="pList" style="display:flex;flex-direction:column;gap:10px"></div>
   <p class="note">Updates arrive three ways: the weekday morning feed (email scan, company news, hiring signals, salary benchmarks), anything you tell Claude in your recruiting project, and what you add here. Ontario rule since January 1, 2026: employers with 25 or more staff must tell interviewed candidates the outcome within 45 days.</p>
 </section>
@@ -1661,7 +1662,7 @@ const GAPS = {
  casework:["Case or presentation was weak","Practise: answer first, three insights, one recommendation.","q:c6"],
  failure:["No ready setback story","Build the setback story in the Story bank.","stories"]
 };
-let pFilter="shortlist";
+let pFilter="shortlist"; let pSort=(()=>{try{return localStorage.getItem("imSort")||"match"}catch(e){return "match"}})();
 const today = () => new Date().toISOString().slice(0,10);
 const daysBetween = (a,b) => Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000);
 const num = v => { const n = Number(String(v||"").replace(/[^\d.]/g,"")); return isFinite(n)&&n>0 ? n : null; };
@@ -1961,7 +1962,10 @@ function renderPipeline(){
   if(pFilter==="action") list=list.filter(a=>ACTIVE.includes(a.status) && (computedSignals(a).some(s=>s.impact==="risk") || (a.next&&a.next.date&&a.next.date<=today())));
   const rank = a => (["offer","interview","screen","shortlist","applied","target"].indexOf(a.status)+1||9)*100 - (num(a.fit)||0);
   const recent = a => String(a.added||a.applied||a.updated||"");
-  if(pFilter!=="planned") list.sort((x,y)=>recent(y).localeCompare(recent(x))||rank(x)-rank(y));
+  $("#pSort").innerHTML=[["match","Top match"],["recent","Newest"]].map(([k,l])=>`<button data-s="${k}" aria-pressed="${k===pSort}">${l}</button>`).join("");
+  $("#pSort").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{pSort=b.dataset.s;try{localStorage.setItem("imSort",pSort)}catch(e){}renderPipeline();}));
+  const fitN = a => num(a.fit)||num(a.decode&&a.decode.fit)||0;
+  if(pFilter!=="planned") list.sort(pSort==="match" ? (x,y)=>fitN(y)-fitN(x)||recent(y).localeCompare(recent(x)) : (x,y)=>recent(y).localeCompare(recent(x))||rank(x)-rank(y));
   const open = new Set([...document.querySelectorAll("#pList details[open]")].map(d=>d.dataset.id));
   $("#pList").innerHTML = list.length ? list.map(a=>{
     const sig = computedSignals(a).filter(s=>s.impact==="risk").length + byApp("signals",a.id).filter(s=>s.impact==="risk").length;
