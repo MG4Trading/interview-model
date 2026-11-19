@@ -849,13 +849,16 @@ function renderBuilder(){
   const el=$("#qBuilderWrap"); if(!el) return; if(el.contains(document.activeElement)&&document.activeElement.tagName==="TEXTAREA") return;
   const openQ=new Set([...el.querySelectorAll("details[open][data-bq]")].map(d=>d.dataset.bq));
   if(!PROFILE){ el.innerHTML = (GH.token&&PROFILE_ST!=="err")?`<div class="small muted">Loading your Answer Builder...</div>`:`<div class="card small">Connect GitHub (Sync with GitHub, at the bottom of Pipeline) to load your Answer Builder.</div>`; if(PROFILE_ST!=="loading"&&PROFILE_ST!=="err") loadProfile(); return; }
-  const ab=PROFILE.answerBuilder; if(!ab){ el.innerHTML=`<div class="card small">No Answer Builder saved yet.</div>`; return; }
-  const a=focusApp(); const other=a&&a.id!==BASE_ID;
+  const fa=focusApp(); if(fa&&fa.id!==BASE_ID&&!PACKS[fa.id]&&STORE.mode==="gh") loadPack(fa.id).then(()=>renderBuilder());
+  const fp=fa&&(PACKS[fa.id]||{}).st==="ok"?PACKS[fa.id].d:null;
+  const ab=(fp&&fp.builder&&(fp.builder.questions||[]).length)?fp.builder:PROFILE.answerBuilder; if(!ab){ el.innerHTML=`<div class="card small">No Answer Builder saved yet.</div>`; return; }
+  const a=fa; const tailored=ab!==PROFILE.answerBuilder; const other=a&&a.id!==BASE_ID&&!tailored;
   let html=`<div class="card" style="text-align:center;background:#fff8e7"><b style="color:#c0392b;font-size:18px">Big stories. Small words. Real numbers.</b><div class="small">Learn the shape, not the words. One story per answer. Say "I", not "we". Say the number, then stop. Land it in 1 to 2 minutes.</div></div>
   <details class="card small"><summary style="cursor:pointer"><b>The two shapes and the drama checklist</b></summary>
    <p><b>Background, Achievement, Fit:</b> for "Tell me about yourself". Background shows how big you are (budgets, team, partners). Achievement is one story with a number. Fit is why them, from the heart.</p>
    <p><b>Problem, Solution, Result:</b> for every "Tell me about a time". Problem = what was at stake and who you fought. Solution = what YOU did, 2 or 3 steps. Result = the number, then stop.</p>
    <p><b>Drama checklist:</b> stakes, enemy, complexity, your role ("I"), the number said slowly.</p></details>
+  ${tailored?`<div class="card small" style="border:2px solid var(--accent)"><b>Tailored for ${esc(a.company)}</b>: ${esc(a.role||"")}. Same stories, rewritten for this company, role and job.</div>`:""}
   ${other?`<div class="card small">These are your base answers (Salesforce). For <b>${esc(a.company)}</b>, keep the stories and change only the Fit and Link lines. The ${esc(a.company)} version of every question is under <b>By stage</b>.</div>`:""}`;
   (ab.questions||[]).forEach(x=>{ if(PARTS[x.n]) html+=`<h3 style="margin:14px 0 4px;color:#c0392b">${PARTS[x.n]}</h3>`; html+=builderCard(x); });
   el.innerHTML=html;
