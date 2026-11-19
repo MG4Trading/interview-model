@@ -1574,7 +1574,7 @@ async function ghConnect(token){
 }
 function newId(col){ return col[0]+Date.now().toString(36)+Math.floor(Math.random()*1296).toString(36); }
 async function sAdd(col,obj){
-  obj.updated = today(); const id=newId(col);
+  obj.updated = today(); if(!obj.added) obj.added=today(); const id=newId(col);
   STORE.data[col][id]=obj;
   if(STORE.mode==="gh") ghQueue(col,{t:"set",id,d:obj}); else saveLocal2();
   renderPipeline(); return id;
@@ -1807,7 +1807,8 @@ function renderPipeline(){
   if(pFilter==="interview") list=list.filter(a=>["screen","interview","offer"].includes(a.status));
   if(pFilter==="action") list=list.filter(a=>ACTIVE.includes(a.status) && (computedSignals(a).some(s=>s.impact==="risk") || (a.next&&a.next.date&&a.next.date<=today())));
   const rank = a => (["offer","interview","screen","shortlist","applied","target"].indexOf(a.status)+1||9)*100 - (num(a.fit)||0);
-  if(pFilter!=="planned") list.sort((x,y)=>rank(x)-rank(y));
+  const recent = a => String(a.added||a.applied||a.updated||"");
+  if(pFilter!=="planned") list.sort((x,y)=>recent(y).localeCompare(recent(x))||rank(x)-rank(y));
   const open = new Set([...document.querySelectorAll("#pList details[open]")].map(d=>d.dataset.id));
   $("#pList").innerHTML = list.length ? list.map(a=>{
     const sig = computedSignals(a).filter(s=>s.impact==="risk").length + byApp("signals",a.id).filter(s=>s.impact==="risk").length;
