@@ -882,7 +882,7 @@ function renderDecodeList(){
     const id=b.dataset.dtailor, a=Object.assign({id},STORE.data.apps[id]), txt=tailorPrompt(a);
     let ok=false; try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).catch(()=>{}); ok=true; } }catch(e){}
     if(!ok){ const box=el.querySelector(`[data-dbox="${id}"]`); box.value=txt; box.classList.remove("hidden"); box.select(); }
-    window.open(CLAUDE_PROJECT,"_blank");
+    openPackChat(a);
     sUpdate("apps",id,{phase:"apply",tailor:Object.assign({},a.tailor||{},{status:"requested",date:today()})}).then(()=>{ location.hash="apply"; }).catch(()=>{});
   }));
 }
@@ -1929,9 +1929,18 @@ function renderProgress(){
 /* ---------- pipeline list ---------- */
 function statusChip(s){ const cls = s==="offer"||s==="interview"?"v-show":s==="rejected"||s==="ghosted"||s==="withdrawn"?"v-hold":"v-offer"; return `<span class="verdict ${cls}">${esc(STATUS[s]||s)}</span>`; }
 const CLAUDE_PROJECT="https://claude.ai/project/019da0b3-844e-732f-b362-0879fc71f0bf";
-function tailorPrompt(a){
-  const s=a.salary||{}, L=[];
-  L.push(`Build my application pack for this role: tailored resume, cover letter and outreach notes, using all my rules in this recruiting project.`);
+const PROJECT_ID="019da0b3-844e-732f-b362-0879fc71f0bf";
+function projectChatURL(q){ return `https://claude.ai/new?project=${PROJECT_ID}&q=${encodeURIComponent(q.slice(0,12000))}`; }
+function openPackChat(a){ window.open(projectChatURL(tailorPrompt(a,{short:true})),"_blank"); }
+function followPrompt(a){ return [`Follow up: ${a.company||""}, ${a.role||""} (Interview Model record ${a.id})`,``,
+  `Read my record "${a.id}" in MG4Trading/interview-model-data (data/apps.json, plus data/docs/${a.id}/ and any rounds for it).`,
+  `Tell me where this application stands, the next step and its date, and draft the follow-up message I should send now (hiring manager, recruiter or LinkedIn), short and in my voice.`,
+  `Then update the record's next step. Ask me multiple choice questions at decision points.`].join("\n"); }
+function tailorPrompt(a,opt){
+  opt=opt||{}; const s=a.salary||{}, L=[];
+  L.push(`Application pack: ${a.company||""}, ${a.role||""} (Interview Model record ${a.id})`);
+  L.push(``);
+  L.push(`Build my application pack for this role: tailored resume, cover letter and outreach notes, using all my rules in this recruiting project. Keep this chat for this job; I will come back here to follow up.`);
   L.push(``);
   L.push(`ROLE: ${a.role||""}`);
   L.push(`COMPANY: ${a.company||""}`);
@@ -1942,7 +1951,8 @@ function tailorPrompt(a){
   if(a.purpose) L.push(`JOB PURPOSE: ${a.purpose}`);
   if((a.fitWhy||[]).length) L.push(`WHY IT FITS:\n- ${a.fitWhy.join("\n- ")}`);
   if((a.fitGaps||[]).length) L.push(`GAPS AND FLAGS:\n- ${a.fitGaps.join("\n- ")}`);
-  if(a.jd) L.push(`FULL JOB DESCRIPTION:\n${a.jd}`);
+  if(a.jd&&!opt.short) L.push(`FULL JOB DESCRIPTION:\n${a.jd}`);
+  else if(opt.short) L.push(`FULL JOB DESCRIPTION: read field "jd" of record "${a.id}" in MG4Trading/interview-model-data data/apps.json${a.jd?"":" (empty: fetch the job link, or ask me to paste it)"}.`);
   L.push(``);
   L.push(`DO THIS:`);
   L.push(`1. Capture the JD (fetch the link; if it is blocked, ask me to paste it) and pull the keywords.`);
@@ -2018,10 +2028,11 @@ function tailorBlock(a){
     <div class="row">
       <button class="btn sm ${t.status==="ready"?"":"primary"}" data-tailor="${id}">&#9998; ${t.status?"Build again in Claude":"Build pack in Claude"}</button>
       <button class="btn sm ghost" data-tcopy="${id}">Copy prompt only</button>
+      ${t.status?`<button class="btn sm" data-follow="${id}">&#128172; Follow up in Claude</button>`:""}
       ${!applied?`<button class="btn sm primary" data-applied="${id}">I applied today</button>`:`<span class="verdict v-show">Applied${a.applied?" "+fmtDate(a.applied):""}</span>`}
     </div>
     <div data-docs="${id}" style="display:flex;flex-direction:column;gap:6px"><span class="small muted">Checking for your files...</span></div>
-    <span class="small muted" data-tmsg="${id}">Opens your recruiting project in Claude with the role, the job description and your rules copied. Paste and send. When Claude finishes, your files appear above.</span>
+    <span class="small muted" data-tmsg="${id}">Opens a new chat for this job inside your recruiting project, with the request filled in. Press send. The chat is named after the job so you can come back to it. When Claude finishes, your files appear above.</span>
     <textarea class="hidden" data-tbox="${id}" readonly style="min-height:120px;font-size:12px"></textarea>
   </div>`;
 }
@@ -2187,9 +2198,10 @@ function wirePipeline(){
   L.querySelectorAll("[data-tailor]").forEach(b=>b.addEventListener("click",()=>{
     const id=b.dataset.tailor, a=Object.assign({id},STORE.data.apps[id]);
     copyText(tailorPrompt(a),id);
-    window.open(CLAUDE_PROJECT,"_blank");
+    openPackChat(a);
     sUpdate("apps",id,{phase:"apply",tailor:Object.assign({},a.tailor||{},{status:"requested",date:today()})});
   }));
+  L.querySelectorAll("[data-follow]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.follow; window.open(projectChatURL(followPrompt(Object.assign({id},STORE.data.apps[id]))),"_blank"); }));
   L.querySelectorAll("[data-tcopy]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.tcopy; copyText(tailorPrompt(Object.assign({id},STORE.data.apps[id])),id); }));
   L.querySelectorAll("[data-tready]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.tready, a=STORE.data.apps[id]; sUpdate("apps",id,{tailor:Object.assign({},a.tailor||{},{status:"ready",date:today()})}); }));
   L.querySelectorAll("[data-plansave]").forEach(b=>b.addEventListener("click",()=>{
