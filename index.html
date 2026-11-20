@@ -1953,6 +1953,7 @@ function tailorPrompt(a){
   L.push(`6. Cover letter as a .docx (one page, same rules), plus outreach notes: hiring manager email, recruiter email, and a LinkedIn connection note under 300 characters.`);
   L.push(`7. Tell me every reframe, omission or figure correction you made.`);
   L.push(`8. Update my Interview Model record "${a.id}" in MG4Trading/interview-model-data (data/apps.json): tailor.status "ready", tailor.date, tailor.match, pack.cover "ready", pack.outreach "ready", phase "apply", and the hiring manager in warm if found.`);
+  L.push(`9. Save the finished files to my private repo MG4Trading/interview-model-data in the folder data/docs/${a.id}/ : resume.docx, cover-letter.docx and outreach.md (the three messages as plain text). They then show up in my Interview Model app under Apply with download buttons. Also give me the files here in the chat.`);
   L.push(`Ask me multiple choice questions at decision points.`);
   return L.join("\n");
 }
@@ -1983,6 +1984,29 @@ function roundTrack(a){
   return `<div class="card" style="gap:8px"><div class="k">Interview rounds</div><div class="row" style="gap:6px;align-items:center">${Object.keys(lab).map((k,i)=>{ const o=st(k); const bg=o==="advanced"||o==="offer"?"background:#1f7a4d;color:#fff":o==="declined"?"background:#b3261e;color:#fff":o==="pending"?"background:#f4c95d;color:#222":"border:2px solid var(--line)"; return `${i?'<span class="muted">&#10132;</span>':""}<span class="small" style="padding:4px 10px;border-radius:999px;font-weight:700;${bg}">${lab[k]}</span>`; }).join("")}</div>
     <span class="small muted">Yellow is waiting, green is passed. Log each round below, then press Prepare for interview for the next one.</span></div>`;
 }
+const DOCS={};
+const DOC_LABEL={"resume.docx":"Tailored resume","cover-letter.docx":"Cover letter","outreach.md":"Outreach notes"};
+function b64ToBytes(b){ const bin=atob((b||"").replace(/\s/g,"")); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+async function docDownload(id,name,btn){
+  try{ btn.textContent="Downloading..."; const j=await ghReq(`data/docs/${id}/${name}`);
+    let bytes; if(j.content) bytes=b64ToBytes(j.content); else { const r=await fetch(j.git_url,{headers:{Authorization:"Bearer "+GH.token,Accept:"application/vnd.github+json"}}); bytes=b64ToBytes((await r.json()).content); }
+    const ext=name.split(".").pop().toLowerCase(), mime={docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",pdf:"application/pdf",md:"text/plain",txt:"text/plain"}[ext]||"application/octet-stream";
+    const a=STORE.data.apps[id]||{}, nice=`Mohamed_Elgazar_${(a.company||"").replace(/[^A-Za-z0-9]+/g,"_")}_${name}`;
+    const url=URL.createObjectURL(new Blob([bytes],{type:mime})); const l=document.createElement("a"); l.href=url; l.download=nice; document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+    btn.textContent="Downloaded"; }catch(e){ btn.textContent="Could not download, try again"; }
+}
+async function docShowText(id,name,box){
+  try{ const j=await ghReq(`data/docs/${id}/${name}`); const txt=new TextDecoder().decode(b64ToBytes(j.content)); box.value=txt; box.classList.remove("hidden"); }catch(e){ box.value="Could not load the notes."; box.classList.remove("hidden"); }
+}
+async function loadDocs(id,el){
+  if(STORE.mode!=="gh"||!GH.token){ el.innerHTML=`<span class="small muted">Connect GitHub to see your files here.</span>`; return; }
+  const c=DOCS[id]; let files=c&&Date.now()-c.t<60000?c.f:null;
+  if(!files){ try{ const j=await ghReq(`data/docs/${id}`); files=(Array.isArray(j)?j:[]).filter(x=>x.type==="file").map(x=>x.name); }catch(e){ files=[]; } DOCS[id]={t:Date.now(),f:files}; }
+  if(!files.length){ el.innerHTML=`<span class="small muted">No files yet. Press <b>Build pack in Claude</b>; when Claude finishes, the resume, cover letter and outreach notes appear here to download.</span>`; return; }
+  el.innerHTML=`<div class="k">Your files</div>`+files.map(n=>`<div class="row" style="align-items:center"><span class="small" style="flex:1">&#128196; ${esc(DOC_LABEL[n]||n)}</span>${/\.(md|txt)$/i.test(n)?`<button class="btn sm ghost" data-docview="${esc(n)}">View and copy</button>`:""}<button class="btn sm primary" data-docdl="${esc(n)}">Download</button></div>`).join("")+`<textarea class="hidden" data-doctext readonly style="min-height:160px;font-size:13px"></textarea><span class="small muted">Then open the job ad and apply. Press <b>I applied today</b> when done.</span>`;
+  el.querySelectorAll("[data-docdl]").forEach(b=>b.addEventListener("click",()=>docDownload(id,b.dataset.docdl,b)));
+  el.querySelectorAll("[data-docview]").forEach(b=>b.addEventListener("click",()=>docShowText(id,b.dataset.docview,el.querySelector("[data-doctext]"))));
+}
 function tailorBlock(a){
   const t=a.tailor||{}, pk=a.pack||{}, id=a.id, applied=a.status!=="shortlist"&&a.status!=="target";
   const st={resume:t.status==="ready"?"done":t.status==="requested"?"half":"todo", cover:pk.cover==="ready"?"done":t.status==="requested"&&!pk.cover?"half":"todo", outreach:pk.outreach==="ready"?"done":t.status==="requested"&&!pk.outreach?"half":"todo"};
@@ -1996,7 +2020,8 @@ function tailorBlock(a){
       <button class="btn sm ghost" data-tcopy="${id}">Copy prompt only</button>
       ${!applied?`<button class="btn sm primary" data-applied="${id}">I applied today</button>`:`<span class="verdict v-show">Applied${a.applied?" "+fmtDate(a.applied):""}</span>`}
     </div>
-    <span class="small muted" data-tmsg="${id}">Opens your recruiting project in Claude with the role, the job description and your rules copied. Paste and send.</span>
+    <div data-docs="${id}" style="display:flex;flex-direction:column;gap:6px"><span class="small muted">Checking for your files...</span></div>
+    <span class="small muted" data-tmsg="${id}">Opens your recruiting project in Claude with the role, the job description and your rules copied. Paste and send. When Claude finishes, your files appear above.</span>
     <textarea class="hidden" data-tbox="${id}" readonly style="min-height:120px;font-size:12px"></textarea>
   </div>`;
 }
@@ -2152,6 +2177,8 @@ function wirePipeline(){
   const copyText=(txt,id)=>{ let ok=false; try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt); ok=true; } }catch(e){}
     const box=L.querySelector(`[data-tbox="${id}"]`); if(box){ box.value=txt; if(!ok){ box.classList.remove("hidden"); box.focus(); box.select(); } }
     const m=L.querySelector(`[data-tmsg="${id}"]`); if(m) m.textContent= ok ? "Prompt copied. In Claude, paste it into a new chat in your recruiting project and send." : "Copy the prompt below, then paste it in Claude."; return ok; };
+  L.querySelectorAll("[data-docs]").forEach(el=>{ if(el.closest("details[open]")) loadDocs(el.dataset.docs,el); });
+  L.querySelectorAll("details.q[data-id]").forEach(d=>d.addEventListener("toggle",()=>{ if(d.open){ const el=d.querySelector("[data-docs]"); if(el) loadDocs(el.dataset.docs,el); } }));
   L.querySelectorAll("[data-interest]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.interest; sUpdate("apps",id,{phase:"decode",triage:"",phaseDate:today()}).then(()=>{ DECODE_SEL=id; location.hash="decode"; setTimeout(()=>loadDecodeFor(id),80); }).catch(()=>{}); }));
   L.querySelectorAll("[data-gophase]").forEach(b=>b.addEventListener("click",()=>{ location.hash=b.dataset.gophase; }));
   L.querySelectorAll("[data-gotiv]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.gotiv, a=STORE.data.apps[id]; sUpdate("apps",id,Object.assign({status:"screen",phase:"interview",next:{text:"Log the HR screen date, then Prepare for interview",date:today()}},(a.prep&&a.prep.status)?{}:{prep:{status:"requested",date:today()}})).then(()=>{ location.hash="interview"; }).catch(()=>{}); }));
