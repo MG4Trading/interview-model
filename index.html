@@ -1956,6 +1956,14 @@ function tailorPrompt(a){
   L.push(`Ask me multiple choice questions at decision points.`);
   return L.join("\n");
 }
+function scoreBlock(a){
+  const P=a.fitParts||{}, rows=[["requirements","Job requirements",35],["responsibilities","Key responsibilities",25],["location","Location",10],["industry","Industry",10],["lane","Lane",10],["level","Level",10]];
+  return `<div class="card" style="gap:8px"><div class="row between"><div class="k">Match score</div><b style="font-size:20px">${num(a.fit)||0}%${a.bonus?` <span class="small" style="color:#1f7a4d">+${a.bonus} bonus</span>`:""}</b></div>
+    ${a.blocked?`<span class="verdict v-hold">Has a blocker: see Gaps and flags</span>`:""}
+    ${rows.map(([k,l,m])=>{ const v=Number(P[k]||0), pct=Math.round(100*v/m); return `<div style="display:grid;grid-template-columns:130px 1fr 44px;gap:8px;align-items:center"><span class="small">${l}</span><div class="meter"><i style="width:${pct}%;${pct<50?"background:#b3261e":pct<75?"background:#d69e2e":""}"></i></div><span class="small" style="text-align:right;font-variant-numeric:tabular-nums">${v}/${m}</span></div>`; }).join("")}
+    ${a.bonus?`<span class="small muted">Bonus: ${(a.meets||[]).includes("fresh")?"+5 posted in the last day ":""}${a.bonus>5||!(a.meets||[]).includes("fresh")?"+5 named referral":""}</span>`:""}
+  </div>`;
+}
 function refsBlock(a){
   const r=a.refs||[]; if(!r.length) return "";
   const col={P:"#1f7a4d",R:"#7a4d1f",L:"#2b4c9b",O:"#666"}, lab={P:"Peer",R:"Recruiter",L:"Leader",O:"Contact"};
@@ -2039,7 +2047,7 @@ function renderPipeline(){
   const recent = a => String(a.added||a.applied||a.updated||"");
   $("#pSort").innerHTML=[["match","Top match"],["recent","Newest"]].map(([k,l])=>`<button data-s="${k}" aria-pressed="${k===pSort}">${l}</button>`).join("");
   $("#pSort").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{pSort=b.dataset.s;try{localStorage.setItem("imSort",pSort)}catch(e){}renderPipeline();}));
-  const fitN = a => num(a.fit)||num(a.decode&&a.decode.fit)||0;
+  const fitN = a => (num(a.fit)||num(a.decode&&a.decode.fit)||0) + (num(a.bonus)||0);
   if(pFilter!=="planned") list.sort(pSort==="match" ? (x,y)=>fitN(y)-fitN(x)||recent(y).localeCompare(recent(x)) : (x,y)=>recent(y).localeCompare(recent(x))||rank(x)-rank(y));
   const open = new Set([...document.querySelectorAll("#pList details[open]")].map(d=>d.dataset.id));
   $("#pList").innerHTML = list.length ? list.map(a=>{
@@ -2049,7 +2057,7 @@ function renderPipeline(){
       <summary><div style="flex:1;display:flex;flex-direction:column;gap:4px">
         <div class="row between"><span class="qt">${esc(a.company)}</span>${statusChip(a.status)}</div>
         <span class="small">${esc(a.role||"")}</span>
-        <div class="row small muted">${a.lane?`<span class="chip">${esc(LANES[a.lane]||a.lane)}</span>`:""}${num(a.fit)?`<span>Fit ${num(a.fit)}%</span>`:""}${a.warm?`<span>Warm: ${esc(a.warm)}</span>`:""}${sig?`<span class="verdict v-hold">${sig} risk</span>`:""}${a.confirm?`<span class="verdict v-offer">confirm status</span>`:""}${triageBadge(a)}${tailorChip(a)}${a.source==="post"?`<span class="verdict v-show">&#128227; Hiring post</span>`:""}${a.refCount?`<span class="verdict v-show">&#129309; ${a.refCount} you know</span>`:""}${a.suggest==="ignore"&&!a.triage?`<span class="verdict v-hold">Suggest ignore</span>`:""}</div>
+        <div class="row small muted">${a.lane?`<span class="chip">${esc(LANES[a.lane]||a.lane)}</span>`:""}${num(a.fit)?`<span>Fit ${num(a.fit)}%${a.bonus?" +"+a.bonus:""}</span>`:""}${a.blocked?`<span class="verdict v-hold">Blocker</span>`:""}${a.level?`<span class="chip">${esc(a.level)}</span>`:""}${a.warm?`<span>Warm: ${esc(a.warm)}</span>`:""}${sig?`<span class="verdict v-hold">${sig} risk</span>`:""}${a.confirm?`<span class="verdict v-offer">confirm status</span>`:""}${triageBadge(a)}${tailorChip(a)}${a.source==="post"?`<span class="verdict v-show">&#128227; Hiring post</span>`:""}${a.refCount?`<span class="verdict v-show">&#129309; ${a.refCount} you know</span>`:""}${a.suggest==="ignore"&&!a.triage?`<span class="verdict v-hold">Suggest ignore</span>`:""}</div>
         ${a.next&&a.next.text?`<div class="small"><b>Next:</b> ${esc(a.next.text)}${a.next.date?" ("+fmtDate(a.next.date)+")":""}</div>`:""}
       </div></summary>
       <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
@@ -2065,6 +2073,7 @@ function renderPipeline(){
         ${(a.fitWhy||[]).length||(a.fitGaps||[]).length?`<div class="grid2">
           ${(a.fitWhy||[]).length?`<div class="card stripe show" style="gap:6px"><div class="k">Why it fits</div><ul class="clean small">${a.fitWhy.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}
           ${(a.fitGaps||[]).length?`<div class="card stripe hold" style="gap:6px"><div class="k">Gaps and flags</div><ul class="clean small">${a.fitGaps.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}</div>`:""}
+        ${a.fitParts?scoreBlock(a):""}
         ${refsBlock(a)}
         ${PH(a)==="interview"||PHASE==="interview"?roundTrack(a):""}
         ${PH(a)==="apply"||PH(a)==="interview"?tailorBlock(a):""}
