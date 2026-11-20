@@ -60,10 +60,13 @@ main{max-width:980px;margin:0 auto;padding:16px 16px calc(env(safe-area-inset-bo
 .view.on{display:flex}
 .lede{color:var(--muted);max-width:65ch}
 
-.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);padding:6px 4px calc(env(safe-area-inset-bottom) + 6px)}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);padding:6px 4px calc(env(safe-area-inset-bottom) + 6px)}
 .tab{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:8px}
 .tab svg{width:22px;height:22px}
 .tab[aria-current="page"]{color:var(--accent)}
+.tab.locked{opacity:.45}
+.tab .tn{font-size:10px;font-weight:800;background:var(--accent);color:#fff;border-radius:999px;padding:0 5px;margin-left:3px}
+#prepNav{margin:0 0 12px}
 @media (min-width:760px){
   .tabbar{display:none}
   .tabs-top{display:flex}
@@ -205,13 +208,12 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 </header>
 
 <main>
+<div class="seg hidden" id="prepNav" role="group" aria-label="Interview tools"></div>
 <!-- DECODE -->
 <section class="view" id="v-decode" aria-labelledby="h-decode">
-  <h2 id="h-decode">1. Decode the job</h2>
-  <p class="lede">Paste a job description. You get 7 checks: the role objective, the hiring manager's main problem, company news, salary, the hiring manager, your connections there, and your match.</p>
-  <div class="funnel" aria-label="Interview stages in order">
-    <div class="f-hr">HR screen</div><div class="f-hm">Hiring manager</div><div class="f-panel">Panel</div><div class="f-case">Case study</div>
-  </div>
+  <h2 id="h-decode">2. Decode the job</h2>
+  <p class="lede">Jobs you marked Interested land here. Open one to decode it, then press Tailor docs to move it to Apply. Or paste a job description. You get 7 checks: the role objective, the hiring manager's main problem, company news, salary, the hiring manager, your connections there, and your match.</p>
+  <div id="dList" style="display:flex;flex-direction:column;gap:10px"></div>
   <div class="card">
     <label for="jdCompany">Company and role
       <input type="text" id="jdCompany" value="Example: Manager, Sales Operations (SaaS, Toronto)">
@@ -325,7 +327,8 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 
 <!-- PIPELINE -->
 <section class="view" id="v-pipeline" aria-labelledby="h-p">
-  <div class="row between"><h2 id="h-p">Pipeline</h2><span class="status" id="pMode"></span></div>
+  <div class="row between"><h2 id="h-p">1. Explore and search</h2><span class="status" id="pMode"></span></div>
+  <p class="lede" id="pLede"></p>
   <details class="q" id="ghWrap">
     <summary><span class="qt">Sync with GitHub</span><span class="chip" id="ghChip">Set up</span></summary>
     <div class="qbody" style="display:flex;flex-direction:column;gap:10px">
@@ -798,25 +801,90 @@ let SAMPLE=null, DICT=null, TTS=null, DB=null;
 
 /* ---------- tabs and routing ---------- */
 const TABS = [
- ["pipeline","Pipeline",'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>'],
+ ["explore","Explore",'<circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M20 20l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
  ["decode","Decode",'<path d="M4 5h16M4 12h10M4 19h7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="18" cy="17" r="3" stroke="currentColor" stroke-width="2" fill="none"/>'],
- ["questions","Questions",'<path d="M12 18v.01M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="2" fill="none"/>'],
- ["stories","Stories",'<path d="M5 4h10l4 4v12H5z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/><path d="M8 12h8M8 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
- ["showcase","Showcase",'<rect x="3" y="5" width="18" height="12" rx="2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
- ["rehearse","Rehearse",'<rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>']
-
+ ["apply","Apply",'<path d="M6 3h9l4 4v14H6z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/><path d="M9 12h7M9 16h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
+ ["interview","Interview",'<rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>']
 ];
+const PREP_TOOLS=[["interview","Interview rounds"],["questions","Questions"],["stories","Stories"],["showcase","Showcase"],["rehearse","Rehearse"]];
+const PHASE_DEFAULT={explore:"new",apply:"prep",interview:"live"};
 function buildTabs(){
   const html = TABS.map(([id,label,icon]) => `<button class="tab" data-tab="${id}"><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}</button>`).join("");
   $("#tabbar").innerHTML = html; $("#tabsTop").innerHTML = html;
   document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => { location.hash = b.dataset.tab; }));
 }
 function route(){
-  const id = (location.hash||"").replace("#","");
-  const valid = TABS.some(t => t[0]===id) ? id : "pipeline";
-  document.querySelectorAll("main > .view").forEach(v => v.classList.toggle("on", v.id==="v-"+valid));
-  document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-current", b.dataset.tab===valid ? "page" : "false"));
+  let id = (location.hash||"").replace("#","");
+  if(id==="pipeline") id="explore";
+  const tools = PREP_TOOLS.map(t=>t[0]).filter(t=>t!=="interview");
+  const valid = ["explore","decode","apply","interview",...tools].includes(id) ? id : "explore";
+  const tab = tools.includes(valid) ? "interview" : valid;
+  const view = ["explore","apply","interview"].includes(valid) ? "pipeline" : valid;
+  if(view==="pipeline"){ if(PHASE!==valid){ PHASE=valid; pFilter=PHASE_DEFAULT[valid]; } renderPipeline(); }
+  if(valid==="decode") renderDecodeList();
+  document.querySelectorAll("main > .view").forEach(v => v.classList.toggle("on", v.id==="v-"+view));
+  document.querySelectorAll(".tab").forEach(b => b.setAttribute("aria-current", b.dataset.tab===tab ? "page" : "false"));
+  const pn=$("#prepNav"); pn.classList.toggle("hidden", tab!=="interview");
+  pn.innerHTML = PREP_TOOLS.map(([k,l])=>`<button data-pn="${k}" aria-pressed="${k===valid}">${l}</button>`).join("");
+  pn.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{ location.hash=b.dataset.pn; }));
   window.scrollTo(0,0);
+}
+/* ---------- search phases ---------- */
+function phaseOf(a){
+  if(a.triage==="ignored"||["rejected","withdrawn","ghosted"].includes(a.status)) return "closed";
+  if(["screen","interview","offer"].includes(a.status)||a.phase==="interview") return "interview";
+  if(a.phase==="apply"||(a.tailor&&a.tailor.status)||a.status==="applied") return "apply";
+  if(a.phase==="decode"||a.triage==="planned") return "decode";
+  return "explore";
+}
+function renderPhaseUI(){
+  const all=appsArr(), n=ph=>all.filter(a=>phaseOf(a)===ph).length;
+  const c={decode:n("decode"),apply:n("apply"),interview:n("interview")};
+  document.querySelectorAll(".tab").forEach(b=>{
+    const t=b.dataset.tab; const lock=(t==="apply"||t==="interview")&&!c[t];
+    b.classList.toggle("locked",lock);
+    b.title = lock ? (t==="apply"?"Locked: pick a job in Decode and press Tailor docs":"Locked until you get an interview, or start one by hand in Apply") : "";
+    let tn=b.querySelector(".tn"); if(c[t]){ if(!tn){ tn=document.createElement("span"); tn.className="tn"; b.appendChild(tn);} tn.textContent=c[t]; } else if(tn) tn.remove();
+  });
+  if((location.hash||"")==="#decode") renderDecodeList();
+}
+function loadDecodeFor(id){
+  const a=STORE.data.apps[id]; if(!a) return;
+  $("#jdCompany").value = a.company+": "+(a.role||""); $("#jdLink").value=a.link||""; $("#jdText").value=a.jd||"";
+  if(a.decode&&(a.decode.purpose||a.decode.objective)) renderDecode(Object.assign({title:a.company+": "+(a.role||""), company:a.company, role:a.role, jd:a.jd||"", source:a.decode.status==="ready"?"deep":"ai"}, a.decode));
+  else if(a.jd) renderDecode(Object.assign(decodeOffline(a.company+": "+(a.role||""),a.jd),{company:a.company, role:a.role}));
+  else $("#decodeOut").innerHTML=`<div class="card"><p class="small">No job description saved for this role yet. Open the job ad, paste the text above, then press Decode now.</p>${a.link?`<a class="btn sm" href="${esc(a.link)}" target="_blank" rel="noopener" style="text-decoration:none">Open job ad</a>`:""}</div>`;
+  DECODE_SEL=id; renderDecodeList();
+  setTimeout(()=>{ const o=$("#decodeOut"); if(o&&o.scrollIntoView) o.scrollIntoView({behavior:"smooth",block:"start"}); },60);
+}
+let DECODE_SEL="";
+function renderDecodeList(){
+  const el=$("#dList"); if(!el) return;
+  const list=appsArr().filter(a=>phaseOf(a)==="decode").sort((x,y)=>(num(y.fit)||0)-(num(x.fit)||0));
+  el.innerHTML = list.length ? `<div class="k">Jobs you are interested in (${list.length})</div>` + list.map(a=>`<div class="card" style="gap:8px${a.id===DECODE_SEL?";border:2px solid var(--accent)":""}">
+      <div class="row between"><span class="qt">${esc(a.company)}</span>${num(a.fit)?`<span class="chip">Fit ${num(a.fit)}%</span>`:""}</div>
+      <span class="small">${esc(a.role||"")}</span>
+      <div class="row small muted">${a.level?`<span class="chip">${esc(a.level)}</span>`:""}${a.refCount?`<span class="verdict v-show">&#129309; ${a.refCount} you know</span>`:""}${a.decode&&a.decode.status==="ready"?`<span class="verdict v-show">Deep decode ready</span>`:a.decode&&a.decode.status==="requested"?`<span class="verdict v-offer">Deep decode in Claude</span>`:""}</div>
+      <div class="row">
+        <button class="btn sm" data-dopen="${a.id}">Open decode</button>
+        <button class="btn sm primary" data-dtailor="${a.id}">&#9998; Tailor docs</button>
+        ${a.link?`<a class="btn sm ghost" href="${esc(a.link)}" target="_blank" rel="noopener" style="text-decoration:none">Job ad</a>`:""}
+        <button class="btn sm ghost" data-dback="${a.id}">Not now</button>
+      </div>
+      <span class="small muted hidden" data-dmsg="${a.id}"></span>
+      <textarea class="hidden" data-dbox="${a.id}" readonly style="min-height:100px;font-size:12px"></textarea>
+    </div>`).join("")
+    : `<div class="card"><p class="small">No jobs here yet. In <b>Explore</b>, open a role and press <b>I'm interested</b>. It moves here for decoding. You can also paste any job below.</p><div class="row"><button class="btn sm" data-goexp="1">Go to Explore</button></div></div>`;
+  el.querySelectorAll("[data-goexp]").forEach(b=>b.addEventListener("click",()=>{location.hash="explore";}));
+  el.querySelectorAll("[data-dopen]").forEach(b=>b.addEventListener("click",()=>loadDecodeFor(b.dataset.dopen)));
+  el.querySelectorAll("[data-dback]").forEach(b=>b.addEventListener("click",()=>sUpdate("apps",b.dataset.dback,{phase:"explore",triage:""}).catch(()=>{})));
+  el.querySelectorAll("[data-dtailor]").forEach(b=>b.addEventListener("click",()=>{
+    const id=b.dataset.dtailor, a=Object.assign({id},STORE.data.apps[id]), txt=tailorPrompt(a);
+    let ok=false; try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).catch(()=>{}); ok=true; } }catch(e){}
+    if(!ok){ const box=el.querySelector(`[data-dbox="${id}"]`); box.value=txt; box.classList.remove("hidden"); box.select(); }
+    window.open(CLAUDE_PROJECT,"_blank");
+    sUpdate("apps",id,{phase:"apply",tailor:Object.assign({},a.tailor||{},{status:"requested",date:today()})}).then(()=>{ location.hash="apply"; }).catch(()=>{});
+  }));
 }
 
 /* ---------- ANSWER BUILDER (coach method) ---------- */
@@ -1040,7 +1108,7 @@ async function deepDecode(){
   let id;
   const req={status:"requested",date:today()};
   if(ex){ id=ex.id; await sUpdate("apps",id,Object.assign({decode:Object.assign({},ex.decode||{},req)}, jd.length>=80?{jd:jd.slice(0,20000)}:{}, link&&!ex.link?{link}:{})); }
-  else { const qf=quickFit(role,jd); id=await sAdd("apps",{company:co||"Company", role, link, lane:guessLane(title+" "+jd.slice(0,400)), status:"target", fit:"", jd:jd.slice(0,20000), decode:req, source:"decode"}); }
+  else { const qf=quickFit(role,jd); id=await sAdd("apps",{company:co||"Company", role, link, lane:guessLane(title+" "+jd.slice(0,400)), status:"target", phase:"decode", fit:"", jd:jd.slice(0,20000), decode:req, source:"decode"}); }
   const p=deepDecodePrompt(id,title,link,jd);
   try{ navigator.clipboard.writeText(p).catch(()=>{}); }catch(e){} $("#decodeOut").insertAdjacentHTML("afterbegin",`<details class="card"><summary class="small">Prompt (if the copy did not work, select and copy)</summary><textarea style="min-height:140px">${esc(p)}</textarea></details>`); window.open(CLAUDE_PROJECT,"_blank");
   $("#decodeStatus").textContent="Saved and queued. The prompt is copied: paste it in the Claude project now, or the next feed run (6:47 am or 4:47 pm) fills it in.";
@@ -1662,7 +1730,7 @@ const GAPS = {
  casework:["Case or presentation was weak","Practise: answer first, three insights, one recommendation.","q:c6"],
  failure:["No ready setback story","Build the setback story in the Story bank.","stories"]
 };
-let pFilter="shortlist"; let pSort=(()=>{try{return localStorage.getItem("imSort")||"match"}catch(e){return "match"}})();
+let pFilter="new"; let PHASE="explore"; let pSort=(()=>{try{return localStorage.getItem("imSort")||"match"}catch(e){return "match"}})();
 const today = () => new Date().toISOString().slice(0,10);
 const daysBetween = (a,b) => Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000);
 const num = v => { const n = Number(String(v||"").replace(/[^\d.]/g,"")); return isFinite(n)&&n>0 ? n : null; };
@@ -1863,7 +1931,7 @@ function statusChip(s){ const cls = s==="offer"||s==="interview"?"v-show":s==="r
 const CLAUDE_PROJECT="https://claude.ai/project/019da0b3-844e-732f-b362-0879fc71f0bf";
 function tailorPrompt(a){
   const s=a.salary||{}, L=[];
-  L.push(`Tailor my resume for this role, using all my rules in this recruiting project.`);
+  L.push(`Build my application pack for this role: tailored resume, cover letter and outreach notes, using all my rules in this recruiting project.`);
   L.push(``);
   L.push(`ROLE: ${a.role||""}`);
   L.push(`COMPANY: ${a.company||""}`);
@@ -1882,9 +1950,9 @@ function tailorPrompt(a){
   L.push(`3. Short company and business unit brief in my standard format (KPIs, products, customers, competition, locations, growth, what it means for me, smart questions).`);
   L.push(`4. Identify the likely hiring manager and recruiter.`);
   L.push(`5. Tailored resume as a .docx: two pages, reverse chronological, Vodafone consolidated under one role, figures checked against my master resume, CAD only, no age signals (no graduation years, no pre-2003 roles), no AI signals and no dashes.`);
-  L.push(`6. Short messages: hiring manager email, recruiter email, LinkedIn note.`);
+  L.push(`6. Cover letter as a .docx (one page, same rules), plus outreach notes: hiring manager email, recruiter email, and a LinkedIn connection note under 300 characters.`);
   L.push(`7. Tell me every reframe, omission or figure correction you made.`);
-  L.push(`8. Update my Interview Model record "${a.id}" in MG4Trading/interview-model-data (data/apps.json): tailor.status "ready", tailor.date, tailor.match, and the hiring manager in warm if found.`);
+  L.push(`8. Update my Interview Model record "${a.id}" in MG4Trading/interview-model-data (data/apps.json): tailor.status "ready", tailor.date, tailor.match, pack.cover "ready", pack.outreach "ready", phase "apply", and the hiring manager in warm if found.`);
   L.push(`Ask me multiple choice questions at decision points.`);
   return L.join("\n");
 }
@@ -1901,20 +1969,26 @@ function tailorChip(a){
   if(t.status==="requested") return `<span class="verdict v-offer">Resume in Claude${t.date?" "+fmtDate(t.date):""}</span>`;
   return "";
 }
+function roundTrack(a){
+  const rs=byApp("rounds",a.id), st=k=>{ const r=rs.filter(x=>x.stage===k).sort((x,y)=>(y.date||"").localeCompare(x.date||""))[0]; return r?r.outcome:""; };
+  const lab={hr:"HR screen",hm:"Hiring manager",panel:"Panel",case:"Case study"};
+  return `<div class="card" style="gap:8px"><div class="k">Interview rounds</div><div class="row" style="gap:6px;align-items:center">${Object.keys(lab).map((k,i)=>{ const o=st(k); const bg=o==="advanced"||o==="offer"?"background:#1f7a4d;color:#fff":o==="declined"?"background:#b3261e;color:#fff":o==="pending"?"background:#f4c95d;color:#222":"border:2px solid var(--line)"; return `${i?'<span class="muted">&#10132;</span>':""}<span class="small" style="padding:4px 10px;border-radius:999px;font-weight:700;${bg}">${lab[k]}</span>`; }).join("")}</div>
+    <span class="small muted">Yellow is waiting, green is passed. Log each round below, then press Prepare for interview for the next one.</span></div>`;
+}
 function tailorBlock(a){
-  const t=a.tailor||{}, id=a.id, pre=["shortlist","target"].includes(a.status)&&a.triage!=="ignored";
-  const s1=t.status==="ready"?"done":t.status==="requested"?"half":"todo";
-  const dot=(n,st,label)=>`<div style="display:flex;align-items:center;gap:8px"><span style="width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;${st==="done"?"background:#1f7a4d;color:#fff":st==="half"?"background:#f4c95d;color:#222":"border:2px solid var(--line)"}">${st==="done"?"&#10003;":n}</span><b>${label}</b></div>`;
+  const t=a.tailor||{}, pk=a.pack||{}, id=a.id, applied=a.status!=="shortlist"&&a.status!=="target";
+  const st={resume:t.status==="ready"?"done":t.status==="requested"?"half":"todo", cover:pk.cover==="ready"?"done":t.status==="requested"&&!pk.cover?"half":"todo", outreach:pk.outreach==="ready"?"done":t.status==="requested"&&!pk.outreach?"half":"todo"};
+  const dot=(k,label)=>`<div style="display:flex;align-items:center;gap:8px"><span style="width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;${st[k]==="done"?"background:#1f7a4d;color:#fff":st[k]==="half"?"background:#f4c95d;color:#222":"border:2px solid var(--line)"}">${st[k]==="done"?"&#10003;":"&middot;"}</span><b>${label}</b>${st[k]!=="done"?`<button class="btn sm ghost" data-packready="${id}" data-doc="${k}">Mark ready</button>`:""}</div>`;
   return `<div class="card" style="gap:10px" data-tailorbox="${id}">
-    <div class="k">${pre?"Before you apply":"Resume for this role"}</div>
-    <div class="row" style="align-items:center;gap:10px">${dot(1,s1,"Tailor resume")}<span class="muted">&#10132;</span>${dot(2,pre?"todo":"done","Apply")}</div>
+    <div class="k">Application pack</div>
+    <div style="display:flex;flex-direction:column;gap:8px">${dot("resume","Tailored resume")}${dot("cover","Cover letter")}${dot("outreach","Outreach note (hiring manager, recruiter, LinkedIn)")}</div>
     ${t.match?`<span class="small">Match score from Claude: <b>${esc(t.match)}%</b></span>`:""}
     <div class="row">
-      <button class="btn sm ${t.status==="ready"?"":"primary"}" data-tailor="${id}">&#9998; ${t.status?"Tailor again":"Tailor resume"}</button>
+      <button class="btn sm ${t.status==="ready"?"":"primary"}" data-tailor="${id}">&#9998; ${t.status?"Build again in Claude":"Build pack in Claude"}</button>
       <button class="btn sm ghost" data-tcopy="${id}">Copy prompt only</button>
-      ${t.status!=="ready"?`<button class="btn sm" data-tready="${id}">Mark resume ready</button>`:""}
+      ${!applied?`<button class="btn sm primary" data-applied="${id}">I applied today</button>`:`<span class="verdict v-show">Applied${a.applied?" "+fmtDate(a.applied):""}</span>`}
     </div>
-    <span class="small muted" data-tmsg="${id}">Opens your recruiting project in Claude with the role, JD and your tailoring rules copied. Paste and send.</span>
+    <span class="small muted" data-tmsg="${id}">Opens your recruiting project in Claude with the role, the job description and your rules copied. Paste and send.</span>
     <textarea class="hidden" data-tbox="${id}" readonly style="min-height:120px;font-size:12px"></textarea>
   </div>`;
 }
@@ -1946,20 +2020,21 @@ function triageBlock(a){
 function renderPipeline(){
   if(STORE.mode!=="gh") $("#pMode").textContent = "Saved on this device only";
   renderProgress();
-  const sl = appsArr().filter(a=>a.status==="shortlist"); const cnt=t=>sl.filter(a=>(a.triage||"")===t).length;
-  const f = [["shortlist",`To review (${cnt("")})`],["planned",`Planned (${cnt("planned")})`],["reviewed",`Done (${cnt("reviewed")})`],["ignored",`Ignored (${cnt("ignored")})`],["active","Active"],["action","Needs action"],["interview","Interviewing"],["closed","Closed"],["all","All"]];
+  const ALL=appsArr(), PH=a=>phaseOf(a), due=a=>computedSignals(a).some(s=>s.impact==="risk")||(a.next&&a.next.date&&a.next.date<=today());
+  const FL={
+    explore:[["new",a=>PH(a)==="explore"&&!a.triage,"New"],["reviewed",a=>PH(a)==="explore"&&a.triage==="reviewed","Done"],["ignored",a=>a.triage==="ignored","Ignored"],["closed",a=>PH(a)==="closed"&&a.triage!=="ignored","Closed"],["all",a=>a.triage!=="ignored","All"]],
+    apply:[["prep",a=>PH(a)==="apply"&&a.status!=="applied","Building the pack"],["applied",a=>PH(a)==="apply"&&a.status==="applied","Applied, waiting"],["action",a=>PH(a)==="apply"&&due(a),"Needs action"]],
+    interview:[["live",a=>PH(a)==="interview","Live interviews"],["past",a=>PH(a)==="closed"&&byApp("rounds",a.id).length>0,"Past interviews"]]
+  }[PHASE];
+  if(!FL.some(x=>x[0]===pFilter)) pFilter=FL[0][0];
+  const f = FL.map(([k,fn,l])=>[k,`${l} (${ALL.filter(fn).length})`]);
+  $("#h-p").textContent = {explore:"1. Explore and search",apply:"3. Application pack",interview:"4. Interview rounds"}[PHASE];
+  $("#pLede").innerHTML = {explore:"New roles from LinkedIn and Indeed, best match first. Open a role and press <b>I'm interested</b> to move it to Decode.",apply:"Resume, cover letter and outreach note for each job you chose. Opens when you press <b>Tailor docs</b> in Decode.",interview:"HR screen, hiring manager, panel and case rounds. Opens when you get an interview, or start one by hand with <b>I got an interview</b> in Apply."}[PHASE];
+  ["ghWrap","pAddWrap","pProgress"].forEach(i=>{ const e=$("#"+i); if(e) e.classList.toggle("hidden",PHASE!=="explore"); });
+  renderPhaseUI();
   $("#pFilter").innerHTML = f.map(([k,l])=>`<button data-f="${k}" aria-pressed="${k===pFilter}">${l}</button>`).join("");
   $("#pFilter").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{pFilter=b.dataset.f;renderPipeline();}));
-  let list = appsArr();
-  if(pFilter==="active") list=list.filter(a=>ACTIVE.includes(a.status)&&a.status!=="shortlist");
-  if(pFilter==="shortlist") list=list.filter(a=>a.status==="shortlist"&&!a.triage);
-  if(pFilter==="planned") list=list.filter(a=>a.status==="shortlist"&&a.triage==="planned").sort((x,y)=>(x.planDate||"9").localeCompare(y.planDate||"9"));
-  if(pFilter==="reviewed") list=list.filter(a=>a.status==="shortlist"&&a.triage==="reviewed");
-  if(pFilter==="ignored") list=list.filter(a=>a.triage==="ignored");
-  if(pFilter==="all") list=list.filter(a=>a.triage!=="ignored");
-  if(pFilter==="closed") list=list.filter(a=>!ACTIVE.includes(a.status));
-  if(pFilter==="interview") list=list.filter(a=>["screen","interview","offer"].includes(a.status));
-  if(pFilter==="action") list=list.filter(a=>ACTIVE.includes(a.status) && (computedSignals(a).some(s=>s.impact==="risk") || (a.next&&a.next.date&&a.next.date<=today())));
+  let list = ALL.filter(FL.find(x=>x[0]===pFilter)[1]);
   const rank = a => (["offer","interview","screen","shortlist","applied","target"].indexOf(a.status)+1||9)*100 - (num(a.fit)||0);
   const recent = a => String(a.added||a.applied||a.updated||"");
   $("#pSort").innerHTML=[["match","Top match"],["recent","Newest"]].map(([k,l])=>`<button data-s="${k}" aria-pressed="${k===pSort}">${l}</button>`).join("");
@@ -1979,7 +2054,10 @@ function renderPipeline(){
       </div></summary>
       <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
         <div class="row">
-          <button class="btn sm primary" data-prep="${a.id}">Prepare next step</button>
+          ${PH(a)==="explore"&&a.triage!=="ignored"?`<button class="btn sm primary" data-interest="${a.id}">&#9733; I'm interested</button>`:""}
+          ${PH(a)==="decode"?`<button class="btn sm primary" data-gophase="decode">Open in Decode</button>`:""}
+          ${PH(a)==="apply"?`<button class="btn sm" data-gotiv="${a.id}">&#127908; I got an interview</button>`:""}
+          ${PH(a)==="interview"||PHASE==="interview"?`<button class="btn sm primary" data-prep="${a.id}">Prepare for interview</button>`:""}
           ${a.link?`<a class="btn sm" href="${esc(a.link)}" target="_blank" rel="noopener" style="text-decoration:none">Open job ad</a>`:""}${a.postUrl?`<a class="btn sm" href="${esc(a.postUrl)}" target="_blank" rel="noopener" style="text-decoration:none">Open LinkedIn post</a>`:""}
           <select class="btn sm" data-status="${a.id}" aria-label="Change status">${Object.entries(STATUS).map(([k,l])=>`<option value="${k}" ${k===a.status?"selected":""}>${l}</option>`).join("")}</select>
         </div>
@@ -1988,7 +2066,8 @@ function renderPipeline(){
           ${(a.fitWhy||[]).length?`<div class="card stripe show" style="gap:6px"><div class="k">Why it fits</div><ul class="clean small">${a.fitWhy.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}
           ${(a.fitGaps||[]).length?`<div class="card stripe hold" style="gap:6px"><div class="k">Gaps and flags</div><ul class="clean small">${a.fitGaps.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}</div>`:""}
         ${refsBlock(a)}
-        ${a.status!=="rejected"&&a.status!=="withdrawn"?tailorBlock(a):""}
+        ${PH(a)==="interview"||PHASE==="interview"?roundTrack(a):""}
+        ${PH(a)==="apply"||PH(a)==="interview"?tailorBlock(a):""}
         ${a.status==="shortlist"||a.triage==="ignored"?triageBlock(a):""}
         ${signalBlock(a)}
         ${salaryBlock(a)}
@@ -2006,7 +2085,7 @@ function renderPipeline(){
           </div>
           <div class="row"><button class="btn sm primary" data-save="${a.id}">Save changes</button><button class="btn sm ghost" data-del="${a.id}">Delete application</button><span class="status" data-msg="${a.id}"></span></div>
         </details>
-        <div class="card" style="gap:8px"><div class="k">Rounds</div>
+        <div class="card${PHASE==="interview"||byApp("rounds",a.id).length?"":" hidden"}" style="gap:8px"><div class="k">Rounds</div>
           ${rounds.length?rounds.map(r=>`<div class="stripe ${r.outcome==="advanced"||r.outcome==="offer"?"show":r.outcome==="declined"?"hold":"offer"}">
              <div class="row small">${chip(r.stage)}<span>${fmtDate(r.date)}</span>${r.who?`<span class="muted">${esc(r.who)}</span>`:""}<span class="verdict ${r.outcome==="declined"?"v-hold":r.outcome==="pending"?"v-offer":"v-show"}">${esc(OUT_LABEL[r.outcome]||r.outcome)}</span></div>
              ${r.questions?`<ul class="clean small">${String(r.questions).split("\n").filter(s=>s.trim()).map(s=>`<li>${esc(s)}</li>`).join("")}</ul>`:`<p class="small" style="color:var(--hold)">No questions logged for this round.</p>`}
@@ -2032,7 +2111,9 @@ function renderPipeline(){
           <div class="row"><button class="btn sm primary" data-read="${a.id}">Read this email</button><span class="status" data-emsg="${a.id}"></span></div>
           <div data-eout="${a.id}"></div>
         </div>
-      </div></details>`; }).join("") : `<div class="card"><p class="muted">Nothing here for this filter.</p></div>`;
+      </div></details>`; }).join("") : (PHASE==="apply"&&!ALL.some(a=>PH(a)==="apply") ? `<div class="card"><p><b>&#128274; Apply opens when you choose a job.</b></p><p class="small">In Decode, open a job you are interested in and press <b>Tailor docs</b>. Claude builds the resume, cover letter and outreach note, and the job moves here.</p><div class="row"><button class="btn sm primary" data-gophase="decode">Go to Decode</button></div></div>`
+     : PHASE==="interview"&&!ALL.some(a=>PH(a)==="interview") ? `<div class="card"><p><b>&#128274; Interview opens when you get an invite.</b></p><p class="small">An invite email, a logged round, or <b>I got an interview</b> on a role in Apply moves it here. You can practise any time with Questions, Stories, Showcase and Rehearse above.</p><div class="row"><button class="btn sm" data-gophase="apply">Go to Apply</button><button class="btn sm" data-gophase="questions">Practise questions</button></div></div>`
+     : `<div class="card"><p class="muted">Nothing here for this filter.</p></div>`);
   wirePipeline();
 }
 function setPath(obj,path,val){ const k=path.split("."); let o=obj; while(k.length>1){ const p=k.shift(); o[p]=Object.assign({},o[p]||{}); o=o[p]; } o[k[0]]=val; }
@@ -2062,11 +2143,16 @@ function wirePipeline(){
   const copyText=(txt,id)=>{ let ok=false; try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt); ok=true; } }catch(e){}
     const box=L.querySelector(`[data-tbox="${id}"]`); if(box){ box.value=txt; if(!ok){ box.classList.remove("hidden"); box.focus(); box.select(); } }
     const m=L.querySelector(`[data-tmsg="${id}"]`); if(m) m.textContent= ok ? "Prompt copied. In Claude, paste it into a new chat in your recruiting project and send." : "Copy the prompt below, then paste it in Claude."; return ok; };
+  L.querySelectorAll("[data-interest]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.interest; sUpdate("apps",id,{phase:"decode",triage:"",phaseDate:today()}).then(()=>{ DECODE_SEL=id; location.hash="decode"; setTimeout(()=>loadDecodeFor(id),80); }).catch(()=>{}); }));
+  L.querySelectorAll("[data-gophase]").forEach(b=>b.addEventListener("click",()=>{ location.hash=b.dataset.gophase; }));
+  L.querySelectorAll("[data-gotiv]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.gotiv, a=STORE.data.apps[id]; sUpdate("apps",id,Object.assign({status:"screen",phase:"interview",next:{text:"Log the HR screen date, then Prepare for interview",date:today()}},(a.prep&&a.prep.status)?{}:{prep:{status:"requested",date:today()}})).then(()=>{ location.hash="interview"; }).catch(()=>{}); }));
+  L.querySelectorAll("[data-packready]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.packready, d=b.dataset.doc, a=STORE.data.apps[id];
+    if(d==="resume") sUpdate("apps",id,{tailor:Object.assign({},a.tailor||{},{status:"ready",date:today()})}); else sUpdate("apps",id,{pack:Object.assign({},a.pack||{},{[d]:"ready"})}); }));
   L.querySelectorAll("[data-tailor]").forEach(b=>b.addEventListener("click",()=>{
     const id=b.dataset.tailor, a=Object.assign({id},STORE.data.apps[id]);
     copyText(tailorPrompt(a),id);
     window.open(CLAUDE_PROJECT,"_blank");
-    sUpdate("apps",id,{tailor:Object.assign({},a.tailor||{},{status:"requested",date:today()})});
+    sUpdate("apps",id,{phase:"apply",tailor:Object.assign({},a.tailor||{},{status:"requested",date:today()})});
   }));
   L.querySelectorAll("[data-tcopy]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.tcopy; copyText(tailorPrompt(Object.assign({id},STORE.data.apps[id])),id); }));
   L.querySelectorAll("[data-tready]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.tready, a=STORE.data.apps[id]; sUpdate("apps",id,{tailor:Object.assign({},a.tailor||{},{status:"ready",date:today()})}); }));
@@ -2090,7 +2176,8 @@ function prepNext(id){
   $("#jdCompany").value = a.company+": "+(a.role||""); if(a.jd) $("#jdText").value=a.jd;
   if(a.decode&&(a.decode.purpose||a.decode.objective)) renderDecode(Object.assign({title:a.company+": "+(a.role||""), company:a.company, role:a.role, jd:a.jd||"", source:a.decode.status==="ready"?"deep":"ai"}, a.decode)); else if(a.jd) renderDecode(Object.assign(decodeOffline(a.company+": "+(a.role||""),a.jd),{company:a.company, role:a.role}));
   if(next!=="final"){ rStage=next; renderRStage(); nextQ(); }
-  location.hash = a.decode||a.jd ? "decode" : "showcase";
+  FOCUS=id; try{ localStorage.setItem(LSF,FOCUS); }catch(e){} if(typeof applyFocus==="function") applyFocus();
+  location.hash = "questions";
 }
 
 /* ---------- email reader ---------- */
@@ -2155,7 +2242,7 @@ function guessLane(t){ t=t.toLowerCase(); if(/rev(enue)? ?op|sales op|sales prog
 async function saveDecodeToPipeline(d){
   const title=$("#jdCompany").value.trim(); const parts=title.split(/:|,| at /); const jd=$("#jdText").value.trim();
   const range=jd.match(/\$\s?(\d[\d,]{4,})\s*(?:to|-|and)\s*\$?\s?(\d[\d,]{4,})/);
-  const rec={company:(parts[0]||title).replace(/^Example\s*/i,"").trim()||"Company", role:title.slice((parts[0]||"").length).replace(/^[:,\s]+|^at\s+/,"").trim(), link:$("#jdLink").value.trim(), lane:guessLane(title+" "+jd.slice(0,400)), status:"target", fit:d.fit||"", purpose:d.purpose||"", jd:jd.slice(0,20000), decode:{objective:d.objective,purpose:d.purpose,problems:d.problems,metrics:d.metrics,hidden:d.hidden,stages:d.stages,stories:d.stories,showcase:d.showcase,risks:d.risks,ask:d.ask,fit:d.fit}, salary:range?{postedMin:range[1].replace(/,/g,""),postedMax:range[2].replace(/,/g,"")}:{}, source:"decode"};
+  const rec={company:(parts[0]||title).replace(/^Example\s*/i,"").trim()||"Company", role:title.slice((parts[0]||"").length).replace(/^[:,\s]+|^at\s+/,"").trim(), link:$("#jdLink").value.trim(), lane:guessLane(title+" "+jd.slice(0,400)), status:"target", phase:"decode", fit:d.fit||"", purpose:d.purpose||"", jd:jd.slice(0,20000), decode:{objective:d.objective,purpose:d.purpose,problems:d.problems,metrics:d.metrics,hidden:d.hidden,stages:d.stages,stories:d.stories,showcase:d.showcase,risks:d.risks,ask:d.ask,fit:d.fit}, salary:range?{postedMin:range[1].replace(/,/g,""),postedMax:range[2].replace(/,/g,"")}:{}, source:"decode"};
   try{ await sAdd("apps",rec); $("#decodeStatus").textContent="Saved to your pipeline as a target. Change the status once you apply."; }catch(e){ $("#decodeStatus").textContent="Could not save to the pipeline."; }
 }
 
