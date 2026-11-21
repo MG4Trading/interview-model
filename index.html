@@ -212,7 +212,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 <!-- DECODE -->
 <section class="view" id="v-decode" aria-labelledby="h-decode">
   <h2 id="h-decode">2. Decode the job</h2>
-  <p class="lede">Jobs you marked Interested land here. Open one to decode it, then press Tailor docs to move it to Apply. Or paste a job description. You get 7 checks: the role objective, the hiring manager's main problem, company news, salary, the hiring manager, your connections there, and your match.</p>
+  <p class="lede">Roles with Next step: Decode land here. Open one to decode it, then set Next step to Apply. Or paste a job description. You get 7 checks: the role objective, the hiring manager's main problem, company news, salary, the hiring manager, your connections there, and your match.</p>
   <div id="dList" style="display:flex;flex-direction:column;gap:10px"></div>
   <div class="card">
     <label for="jdCompany">Company and role
@@ -853,7 +853,7 @@ function renderPhaseUI(){
   document.querySelectorAll(".tab").forEach(b=>{
     const t=b.dataset.tab; const lock=(t==="apply"||t==="interview")&&!c[t];
     b.classList.toggle("locked",lock);
-    b.title = lock ? (t==="apply"?"Locked: pick a job in Decode and press Tailor docs":"Locked until you get an interview, or start one by hand in Apply") : "";
+    b.title = lock ? (t==="apply"?"Locked: set a role's Next step to Apply":"Locked until you get an interview, or start one by hand in Apply") : "";
     let tn=b.querySelector(".tn"); if(c[t]){ if(!tn){ tn=document.createElement("span"); tn.className="tn"; b.appendChild(tn);} tn.textContent=c[t]; } else if(tn) tn.remove();
   });
   if((location.hash||"")==="#decode") renderDecodeList();
@@ -877,16 +877,16 @@ function renderDecodeList(){
       <div class="row small muted">${a.level?`<span class="chip">${esc(a.level)}</span>`:""}${a.refCount?`<span class="verdict v-show">&#129309; ${a.refCount} you know</span>`:""}${a.decode&&a.decode.status==="ready"?`<span class="verdict v-show">Deep decode ready</span>`:a.decode&&a.decode.status==="requested"?`<span class="verdict v-offer">Deep decode in Claude</span>`:""}</div>
       <div class="row">
         <button class="btn sm" data-dopen="${a.id}">Open decode</button>
-        <button class="btn sm primary" data-dtailor="${a.id}">&#9998; Tailor docs</button>
+        ${nextSelect(a)}
         ${a.link?`<a class="btn sm ghost" href="${esc(a.link)}" target="_blank" rel="noopener" style="text-decoration:none">Job ad</a>`:""}
-        <button class="btn sm ghost" data-dback="${a.id}">Not now</button>
       </div>
       <span class="small muted hidden" data-dmsg="${a.id}"></span>
       <textarea class="hidden" data-dbox="${a.id}" readonly style="min-height:100px;font-size:12px"></textarea>
     </div>`).join("")
-    : `<div class="card"><p class="small">No jobs here yet. In <b>Explore</b>, open a role and press <b>I'm interested</b>. It moves here for decoding. You can also paste any job below.</p><div class="row"><button class="btn sm" data-goexp="1">Go to Explore</button></div></div>`;
+    : `<div class="card"><p class="small">No jobs here yet. In <b>Explore</b>, open a role and set <b>Next step</b> to Decode. It moves here. You can also paste any job below.</p><div class="row"><button class="btn sm" data-goexp="1">Go to Explore</button></div></div>`;
   el.querySelectorAll("[data-goexp]").forEach(b=>b.addEventListener("click",()=>{location.hash="explore";}));
   el.querySelectorAll("[data-dopen]").forEach(b=>b.addEventListener("click",()=>loadDecodeFor(b.dataset.dopen)));
+  el.querySelectorAll("[data-next]").forEach(s=>s.addEventListener("change",()=>{ if(s.value) applyNext(s.dataset.next,s.value); }));
   el.querySelectorAll("[data-dback]").forEach(b=>b.addEventListener("click",()=>sUpdate("apps",b.dataset.dback,{phase:"explore",triage:""}).catch(()=>{})));
   el.querySelectorAll("[data-dtailor]").forEach(b=>b.addEventListener("click",()=>{
     const id=b.dataset.dtailor, a=Object.assign({id},STORE.data.apps[id]), txt=tailorPrompt(a);
@@ -2047,7 +2047,7 @@ function tailorBlock(a){
       <button class="btn sm ${t.status==="ready"?"":"primary"}" data-tailor="${id}">&#9998; ${t.status?"Build again in Claude":"Build pack in Claude"}</button>
       <button class="btn sm ghost" data-tcopy="${id}">Copy prompt only</button>
       ${t.status?`<button class="btn sm" data-follow="${id}">&#128172; Follow up in Claude</button>`:""}
-      ${!applied?`<button class="btn sm primary" data-applied="${id}">I applied today</button>`:`<span class="verdict v-show">Applied${a.applied?" "+fmtDate(a.applied):""}</span>`}
+      ${applied?`<span class="verdict v-show">Applied${a.applied?" "+fmtDate(a.applied):""}</span>`:""}
     </div>
     <div data-docs="${id}" style="display:flex;flex-direction:column;gap:6px"><span class="small muted">Checking for your files...</span></div>
     <span class="small muted" data-tmsg="${id}">Opens a new chat for this job inside your recruiting project, with the request filled in. Press send. The chat is named after the job so you can come back to it. When Claude finishes, your files appear above.</span>
@@ -2061,21 +2061,29 @@ function triageBadge(a){
   if(a.triage==="ignored") return `<span class="verdict v-hold">Ignored</span>`;
   return "";
 }
+function nextNow(a){ return a.triage==="ignored"?"ignore":a.status==="applied"?"applied":["screen","interview","offer"].includes(a.status)||a.phase==="interview"?"interview":(a.phase==="apply"||(a.tailor&&a.tailor.status))?"apply":(a.phase==="decode"||a.triage==="planned")?"decode":""; }
+function nextSelect(a){
+  const cur=nextNow(a), opts=[["","Next step..."],["decode","Decode"],["apply","Apply (build pack)"],["interview","Interview"],["applied","Applied"],["ignore","Ignore"]];
+  return `<select class="btn sm primary" data-next="${a.id}" aria-label="Next step for this role">${opts.map(([k,l])=>`<option value="${k}" ${k===cur?"selected":""}>${k&&k===cur?"&#10003; ":""}${l}</option>`).join("")}</select>`;
+}
+function applyNext(id,v){
+  const a=STORE.data.apps[id]||{}; let p;
+  if(v==="decode") p=sUpdate("apps",id,{phase:"decode",triage:"",phaseDate:today()}).then(()=>{ DECODE_SEL=id; location.hash="decode"; setTimeout(()=>loadDecodeFor(id),80); });
+  else if(v==="apply") p=sUpdate("apps",id,{phase:"apply",triage:"",phaseDate:today(),next:{text:"Build the application pack in Claude, then apply",date:today()}}).then(()=>{ location.hash="apply"; });
+  else if(v==="interview") p=sUpdate("apps",id,Object.assign({status:"screen",phase:"interview",triage:"",next:{text:"Log the HR screen date, then Prepare for interview",date:today()}},(a.prep&&a.prep.status)?{}:{prep:{status:"requested",date:today()}})).then(()=>{ location.hash="interview"; });
+  else if(v==="applied") p=sUpdate("apps",id,{status:"applied",applied:a.applied||today(),triage:"",next:{text:"Find a warm path at this company within 3 days",date:addDays(today(),3)}});
+  else if(v==="ignore") p=sUpdate("apps",id,{triage:"ignored",triageDate:today()});
+  if(p) p.catch(()=>{});
+}
 function triageBlock(a){
+  if(a.triage!=="ignored") return "";
   const id=a.id, on=t=>a.triage===t?' aria-pressed="true"':"";
   return `<div class="card" style="gap:10px" data-tribox="${id}">
-    <div class="k">Decide on this role</div>
-    <div class="row">
-      <button class="btn sm"${on("reviewed")} data-tri="reviewed" data-id="${id}">&#10003; Done</button>
-      <button class="btn sm"${on("planned")} data-tri="planned" data-id="${id}">&#128197; Planned</button>
-      <button class="btn sm ghost"${on("ignored")} data-tri="ignored" data-id="${id}">&#10005; Ignore</button>
-      ${a.triage?`<button class="btn sm ghost" data-tri="reset" data-id="${id}">Undo</button>`:""}
-      <button class="btn sm primary" data-applied="${id}">I applied today</button>
-    </div>
+    <div class="k">Ignored. Why? (teaches the search what to skip)</div>
     <div class="row hidden" data-pane="planned"><label class="small">Apply by<input type="date" data-plandate="${id}" value="${esc(a.planDate||addDays(today(),2))}"></label><button class="btn sm primary" data-plansave="${id}">Save plan</button></div>
-    <div class="hidden" data-pane="ignored" style="display:flex;flex-direction:column;gap:8px"><span class="small">Why? This teaches the morning feed what to skip.</span>
+    <div data-pane="ignored" style="display:flex;flex-direction:column;gap:8px">
       <div class="row">${Object.entries(IGNORE_REASONS).map(([k,l])=>`<label class="chip" style="cursor:pointer"><input type="checkbox" data-ignr="${id}" value="${k}" ${(a.ignoreReason||[]).includes(k)?"checked":""}> ${l}</label>`).join("")}</div>
-      <div class="row"><button class="btn sm primary" data-ignsave="${id}">Ignore this role</button></div></div>
+      <div class="row"><button class="btn sm primary" data-ignsave="${id}">Save reasons</button></div></div>
     ${a.triage==="ignored"&&(a.ignoreReason||[]).length?`<span class="small muted">Ignored for: ${a.ignoreReason.map(r=>esc(IGNORE_REASONS[r]||r)).join(", ")}</span>`:""}
   </div>`;
 }
@@ -2091,7 +2099,7 @@ function renderPipeline(){
   if(!FL.some(x=>x[0]===pFilter)) pFilter=FL[0][0];
   const f = FL.map(([k,fn,l])=>[k,`${l} (${ALL.filter(fn).length})`]);
   $("#h-p").textContent = {explore:"1. Explore and search",apply:"3. Application pack",interview:"4. Interview rounds"}[PHASE];
-  $("#pLede").innerHTML = {explore:"New roles from LinkedIn and Indeed, best match first. Open a role and press <b>I'm interested</b> to move it to Decode.",apply:"Resume, cover letter and outreach note for each job you chose. Opens when you press <b>Tailor docs</b> in Decode.",interview:"HR screen, hiring manager, panel and case rounds. Opens when you get an interview, or start one by hand with <b>I got an interview</b> in Apply."}[PHASE];
+  $("#pLede").innerHTML = {explore:"New roles from LinkedIn, Indeed, company career sites, Google and LinkedIn hiring posts, best match first. Open a role and pick its <b>Next step</b>: Decode, Apply, Interview, Applied or Ignore.",apply:"Resume, cover letter and outreach note for each job you chose. Opens when you set a role's <b>Next step</b> to Apply. Then tap <b>Build pack in Claude</b>.",interview:"HR screen, hiring manager, panel and case rounds. Opens when you get an interview, or set a role's <b>Next step</b> to Interview."}[PHASE];
   ["ghWrap","pAddWrap","pProgress"].forEach(i=>{ const e=$("#"+i); if(e) e.classList.toggle("hidden",PHASE!=="explore"); });
   renderPhaseUI();
   $("#pFilter").innerHTML = f.map(([k,l])=>`<button data-f="${k}" aria-pressed="${k===pFilter}">${l}</button>`).join("");
@@ -2116,12 +2124,9 @@ function renderPipeline(){
       </div></summary>
       <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px">
         <div class="row">
-          ${PH(a)==="explore"&&a.triage!=="ignored"?`<button class="btn sm primary" data-interest="${a.id}">&#9733; I'm interested</button>`:""}
-          ${PH(a)==="decode"?`<button class="btn sm primary" data-gophase="decode">Open in Decode</button>`:""}
-          ${PH(a)==="apply"?`<button class="btn sm" data-gotiv="${a.id}">&#127908; I got an interview</button>`:""}
+          ${nextSelect(a)}
           ${PH(a)==="interview"||PHASE==="interview"?`<button class="btn sm primary" data-prep="${a.id}">Prepare for interview</button>`:""}
           ${a.link?`<a class="btn sm" href="${esc(a.link)}" target="_blank" rel="noopener" style="text-decoration:none">Open job ad</a>`:""}${a.postUrl?`<a class="btn sm" href="${esc(a.postUrl)}" target="_blank" rel="noopener" style="text-decoration:none">Open LinkedIn post</a>`:""}
-          <select class="btn sm" data-status="${a.id}" aria-label="Change status">${Object.entries(STATUS).map(([k,l])=>`<option value="${k}" ${k===a.status?"selected":""}>${l}</option>`).join("")}</select>
         </div>
         ${a.purpose?`<p class="small"><b>Job purpose:</b> ${esc(a.purpose)}</p>`:""}
         ${(a.fitWhy||[]).length||(a.fitGaps||[]).length?`<div class="grid2">
@@ -2174,8 +2179,8 @@ function renderPipeline(){
           <div class="row"><button class="btn sm primary" data-read="${a.id}">Read this email</button><span class="status" data-emsg="${a.id}"></span></div>
           <div data-eout="${a.id}"></div>
         </div>
-      </div></details>`; }).join("") : (PHASE==="apply"&&!ALL.some(a=>PH(a)==="apply") ? `<div class="card"><p><b>&#128274; Apply opens when you choose a job.</b></p><p class="small">In Decode, open a job you are interested in and press <b>Tailor docs</b>. Claude builds the resume, cover letter and outreach note, and the job moves here.</p><div class="row"><button class="btn sm primary" data-gophase="decode">Go to Decode</button></div></div>`
-     : PHASE==="interview"&&!ALL.some(a=>PH(a)==="interview") ? `<div class="card"><p><b>&#128274; Interview opens when you get an invite.</b></p><p class="small">An invite email, a logged round, or <b>I got an interview</b> on a role in Apply moves it here. You can practise any time with Questions, Stories, Showcase and Rehearse above.</p><div class="row"><button class="btn sm" data-gophase="apply">Go to Apply</button><button class="btn sm" data-gophase="questions">Practise questions</button></div></div>`
+      </div></details>`; }).join("") : (PHASE==="apply"&&!ALL.some(a=>PH(a)==="apply") ? `<div class="card"><p><b>&#128274; Apply opens when you choose a job.</b></p><p class="small">Set any role's <b>Next step</b> to Apply. Claude builds the resume, cover letter and outreach note, and the job moves here.</p><div class="row"><button class="btn sm primary" data-gophase="decode">Go to Decode</button></div></div>`
+     : PHASE==="interview"&&!ALL.some(a=>PH(a)==="interview") ? `<div class="card"><p><b>&#128274; Interview opens when you get an invite.</b></p><p class="small">An invite email, a logged round, or <b>Next step: Interview</b> on any role moves it here. You can practise any time with Questions, Stories, Showcase and Rehearse above.</p><div class="row"><button class="btn sm" data-gophase="apply">Go to Apply</button><button class="btn sm" data-gophase="questions">Practise questions</button></div></div>`
      : `<div class="card"><p class="muted">Nothing here for this filter.</p></div>`);
   wirePipeline();
 }
@@ -2208,6 +2213,7 @@ function wirePipeline(){
     const m=L.querySelector(`[data-tmsg="${id}"]`); if(m) m.textContent= ok ? "Prompt copied. In Claude, paste it into a new chat in your recruiting project and send." : "Copy the prompt below, then paste it in Claude."; return ok; };
   L.querySelectorAll("[data-docs]").forEach(el=>{ if(el.closest("details[open]")) loadDocs(el.dataset.docs,el); });
   L.querySelectorAll("details.q[data-id]").forEach(d=>d.addEventListener("toggle",()=>{ if(d.open){ const el=d.querySelector("[data-docs]"); if(el) loadDocs(el.dataset.docs,el); } }));
+  L.querySelectorAll("[data-next]").forEach(s=>s.addEventListener("change",()=>{ if(s.value) applyNext(s.dataset.next,s.value); }));
   L.querySelectorAll("[data-interest]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.interest; sUpdate("apps",id,{phase:"decode",triage:"",phaseDate:today()}).then(()=>{ DECODE_SEL=id; location.hash="decode"; setTimeout(()=>loadDecodeFor(id),80); }).catch(()=>{}); }));
   L.querySelectorAll("[data-gophase]").forEach(b=>b.addEventListener("click",()=>{ location.hash=b.dataset.gophase; }));
   L.querySelectorAll("[data-gotiv]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.gotiv, a=STORE.data.apps[id]; sUpdate("apps",id,Object.assign({status:"screen",phase:"interview",next:{text:"Log the HR screen date, then Prepare for interview",date:today()}},(a.prep&&a.prep.status)?{}:{prep:{status:"requested",date:today()}})).then(()=>{ location.hash="interview"; }).catch(()=>{}); }));
