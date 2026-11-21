@@ -2061,9 +2061,9 @@ function triageBadge(a){
   if(a.triage==="ignored") return `<span class="verdict v-hold">Ignored</span>`;
   return "";
 }
-function nextNow(a){ return a.triage==="ignored"?"ignore":a.status==="applied"?"applied":["screen","interview","offer"].includes(a.status)||a.phase==="interview"?"interview":(a.phase==="apply"||(a.tailor&&a.tailor.status))?"apply":(a.phase==="decode"||a.triage==="planned")?"decode":""; }
+function nextNow(a){ return a.status==="rejected"?"rejected":a.status==="offer"?"offer":a.triage==="ignored"?"ignore":a.status==="applied"?"applied":["screen","interview","offer"].includes(a.status)||a.phase==="interview"?"interview":(a.phase==="apply"||(a.tailor&&a.tailor.status))?"apply":(a.phase==="decode"||a.triage==="planned")?"decode":""; }
 function nextSelect(a){
-  const cur=nextNow(a), opts=[["","Next step..."],["decode","Decode"],["apply","Apply (build pack)"],["interview","Interview"],["applied","Applied"],["ignore","Ignore"]];
+  const cur=nextNow(a), opts=[["","Next step..."],["decode","Decode"],["apply","Apply (build pack)"],["interview","Interview"],["applied","Applied"],["offer","Offer"],["rejected","Rejected"],["ignore","Ignore"]];
   return `<select class="btn sm primary" data-next="${a.id}" aria-label="Next step for this role">${opts.map(([k,l])=>`<option value="${k}" ${k===cur?"selected":""}>${k&&k===cur?"&#10003; ":""}${l}</option>`).join("")}</select>`;
 }
 function applyNext(id,v){
@@ -2073,6 +2073,8 @@ function applyNext(id,v){
   else if(v==="interview") p=sUpdate("apps",id,Object.assign({status:"screen",phase:"interview",triage:"",next:{text:"Log the HR screen date, then Prepare for interview",date:today()}},(a.prep&&a.prep.status)?{}:{prep:{status:"requested",date:today()}})).then(()=>{ location.hash="interview"; });
   else if(v==="applied") p=sUpdate("apps",id,{status:"applied",applied:a.applied||today(),triage:"",next:{text:"Find a warm path at this company within 3 days",date:addDays(today(),3)}});
   else if(v==="ignore") p=sUpdate("apps",id,{triage:"ignored",triageDate:today()});
+  else if(v==="offer") p=sUpdate("apps",id,{status:"offer",phase:"interview",triage:"",offerDate:today(),next:{text:"Review the offer: salary, start date, benefits. Ask Claude to help you negotiate",date:today()}}).then(()=>{ location.hash="interview"; });
+  else if(v==="rejected") p=sUpdate("apps",id,{status:"rejected",triage:"",closedDate:today(),next:{text:"Closed. Ask for feedback, and keep in touch with your contacts there",date:""}});
   if(p) p.catch(()=>{});
 }
 function triageBlock(a){
@@ -2099,7 +2101,7 @@ function renderPipeline(){
   if(!FL.some(x=>x[0]===pFilter)) pFilter=FL[0][0];
   const f = FL.map(([k,fn,l])=>[k,`${l} (${ALL.filter(fn).length})`]);
   $("#h-p").textContent = {explore:"1. Explore and search",apply:"3. Application pack",interview:"4. Interview rounds"}[PHASE];
-  $("#pLede").innerHTML = {explore:"New roles from LinkedIn, Indeed, company career sites, Google and LinkedIn hiring posts, best match first. Open a role and pick its <b>Next step</b>: Decode, Apply, Interview, Applied or Ignore.",apply:"Resume, cover letter and outreach note for each job you chose. Opens when you set a role's <b>Next step</b> to Apply. Then tap <b>Build pack in Claude</b>.",interview:"HR screen, hiring manager, panel and case rounds. Opens when you get an interview, or set a role's <b>Next step</b> to Interview."}[PHASE];
+  $("#pLede").innerHTML = {explore:"New roles from LinkedIn, Indeed, company career sites, Google and LinkedIn hiring posts, best match first. Open a role and pick its <b>Next step</b>: Decode, Apply, Interview, Applied, Offer, Rejected or Ignore.",apply:"Resume, cover letter and outreach note for each job you chose. Opens when you set a role's <b>Next step</b> to Apply. Then tap <b>Build pack in Claude</b>.",interview:"HR screen, hiring manager, panel and case rounds. Opens when you get an interview, or set a role's <b>Next step</b> to Interview."}[PHASE];
   ["ghWrap","pAddWrap","pProgress"].forEach(i=>{ const e=$("#"+i); if(e) e.classList.toggle("hidden",PHASE!=="explore"); });
   renderPhaseUI();
   $("#pFilter").innerHTML = f.map(([k,l])=>`<button data-f="${k}" aria-pressed="${k===pFilter}">${l}</button>`).join("");
