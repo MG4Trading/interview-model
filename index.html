@@ -947,7 +947,7 @@ ${text}
 
 Do this:
 1. Reread the job description${jd?" below":` (read data/apps.json record "${a?a.id:"sfdc"}" in MG4Trading/interview-model-data, or fetch its link)`} and search the web for the company's current priorities, so the answer fits this role.
-2. Rewrite MY WORDS into a final answer: same shape, my stories, only verified figures from data/profile.json (locked numbers), short simple sentences a child could follow, "I" not "we", the number said once then stop, no dashes, no age signals, Canadian spelling, mark short pauses with /. Keep it under ${/Background/.test(x.shape)?90:120} seconds, and add a 30 second version.
+2. Rewrite MY WORDS into a final answer: same shape, my stories, only verified figures from data/profile.json (locked numbers), written as natural spoken conversation in five beats: open with a hook, then the moment, what I did, what happened, and close with the link (how this helps the company solve its problem). Short sentences, contractions on, small spoken words, "I" not "we", the number said once then stop, no dashes, no age signals, Canadian spelling, no / marks. Keep it under ${/Background/.test(x.shape)?90:120} seconds, and add a 30 second version.
 3. Stress test it: score out of 10 on shape, drama, one story, I not we, the number, length, and fit to the job; list the 2 weakest points with the fix; give the 3 follow-up questions they are most likely to ask, each with a short answer.
 4. Save it with the Composio GitHub toolkit to data/words.json in MG4Trading/interview-model-data, key "${key}" (re-read and merge first; keep "text"): set final, final30, stress {score, notes[], followups[{q,a}]}, status "ready", date.
 Then show me the final answer here.${jd?`\n\nJOB DESCRIPTION:\n${jd}`:""}`;
@@ -965,7 +965,7 @@ function builderCard(x,key,a){
      <div class="k">Short answer (30 seconds)</div><p style="margin:6px 0;font-size:16px">${esc(shortOf(x))}</p>${audBar("short:"+key,"Hear short")}
    </div>
    ${drama?`<div><div class="k">Answer these first (they give your story its drama)</div><ul class="clean small">${drama}</ul></div>`:""}
-   <details style="background:var(--card2,#f4f7fb);border-left:4px solid var(--accent);padding:8px 12px;border-radius:8px"><summary class="small" style="cursor:pointer"><b>Full sample answer. Read the / as a short pause.</b></summary>${sample}${audBar("full:"+key,"Hear full")}</details>
+   <details style="background:var(--card2,#f4f7fb);border-left:4px solid var(--accent);padding:8px 12px;border-radius:8px"><summary class="small" style="cursor:pointer"><b>Full answer: hook, moment, what I did, what happened, link</b></summary>${sample}${audBar("full:"+key,"Hear full")}</details>
    ${x.tip?`<div class="small"><b>Coach tip:</b> ${esc(x.tip)}</div>`:""}
    <label class="small"><b>Your words:</b><textarea data-bwords="${esc(key)}" style="min-height:100px" placeholder="Write it in your own words, then stress test it.">${esc(words)}</textarea></label>
    <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm" data-bstress="${esc(key)}">Stress test</button><button class="btn sm primary" data-benhance="${esc(key)}">Enhance with Claude</button>${words?audBar("mine:"+key,"Hear mine").replace('<div class="row" style="gap:6px;flex-wrap:wrap">','').replace(/<\/div>$/,""):""}</div>
@@ -988,12 +988,11 @@ function renderBuilder(){
   const a=fa; const tailored=ab!==PROFILE.answerBuilder; const other=a&&a.id!==BASE_ID&&!tailored;
   const pre=tailored?a.id+":":"";
   const jd=(a&&a.jd)||"";
-  let html=`<div class="card" style="text-align:center;background:#fff8e7"><b style="color:#c0392b;font-size:18px">Big stories. Small words. Real numbers.</b><div class="small">Learn the shape, not the words. One story per answer. Say "I", not "we". Say the number, then stop. Land it in 1 to 2 minutes.</div></div>
+  let html=`<div class="card" style="text-align:center;background:#fff8e7"><b style="color:#c0392b;font-size:18px">Talk, don't recite. Hook first, link last.</b><div class="small">Every answer: the hook, the moment, what I did, what happened, the link (how it solves their problem). One story. Say "I", not "we". Say the number, then stop. 60 to 90 seconds.</div></div>
   <input type="text" id="bSearch" placeholder="Search questions and answers, for example conflict, data, 45%" value="${esc(BQ)}" aria-label="Search the answer builder">
   <details class="card small"><summary style="cursor:pointer"><b>Reread the job description${a?`: ${esc(a.company)}`:""}</b></summary>${jd?`<div style="white-space:pre-wrap;max-height:50vh;overflow:auto">${esc(jd)}</div>`:`<p>No job description saved for this role yet. Paste it in Decode and tap Save to pipeline, or ask Claude to fetch it.</p>`}${a&&a.link?`<p><a href="${esc(a.link)}" target="_blank" rel="noopener">Open the job ad</a></p>`:""}</details>
-  <details class="card small"><summary style="cursor:pointer"><b>The two shapes and the drama checklist</b></summary>
-   <p><b>Background, Achievement, Fit:</b> for "Tell me about yourself". Background shows how big you are. Achievement is one story with a number. Fit is why them, from the heart.</p>
-   <p><b>Problem, Solution, Result:</b> for every "Tell me about a time". Problem = what was at stake and who you fought. Solution = what YOU did, 2 or 3 steps. Result = the number, then stop.</p>
+  <details class="card small"><summary style="cursor:pointer"><b>The five beats and the drama checklist</b></summary>
+   <p><b>1. The hook:</b> one plain line that makes them want the story.</p><p><b>2. The moment:</b> where you were and what was at stake. Two sentences.</p><p><b>3. What I did:</b> two or three moves, in your own words. Say "I".</p><p><b>4. What happened:</b> the result, with one number. Then stop.</p><p><b>5. The link:</b> how this helps them solve their problem.</p>
    <p><b>Drama checklist:</b> stakes, enemy, complexity, your role ("I"), the number said slowly.</p></details>
   ${tailored?`<div class="card small" style="border:2px solid var(--accent)"><b>Tailored for ${esc(a.company)}</b>: ${esc(a.role||"")}. Same stories, rewritten for this company, role and job.</div>`:""}
   ${other?`<div class="card small">These are your base answers (Salesforce). The ${esc(a.company)} version builds with its prep pack.</div>`:""}`;
