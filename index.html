@@ -196,6 +196,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 </style>
 </head>
 <body>
+<div id="updBar" class="hidden" style="position:sticky;top:0;z-index:999;background:#1f3864;color:#fff;padding:10px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;font-size:15px"><span>A new version of the app is ready.</span><button type="button" onclick="appReload()" style="background:#fff;color:#1f3864;border:0;border-radius:8px;padding:6px 12px;font-weight:700">Update now</button></div>
 <header class="top">
   <div class="top-row">
     <div class="brand">
@@ -332,6 +333,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
   <details class="q" id="ghWrap">
     <summary><span class="qt">Sync with GitHub</span><span class="chip" id="ghChip">Set up</span></summary>
     <div class="qbody" style="display:flex;flex-direction:column;gap:10px">
+      <div class="row" style="gap:6px"><button type="button" class="btn sm" onclick="checkUpdate(true)">Check for app update</button><button type="button" class="btn sm ghost" onclick="appReload()">Reload app now</button></div>
       <p class="small">Your data lives in the private repo <b>MG4Trading/interview-model-data</b>. Paste a fine-grained token with Contents read and write on that repo only. It stays in this browser and is never sent anywhere except GitHub.</p>
       <label for="ghToken">GitHub token<input type="password" id="ghToken" autocomplete="off" placeholder="github_pat_..."></label>
       <div class="row"><button class="btn primary sm" id="ghSave" type="button">Connect</button><button class="btn sm" id="ghReload" type="button">Reload data</button><button class="btn sm ghost" id="ghForget" type="button">Disconnect</button></div>
@@ -377,6 +379,21 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 <nav class="tabbar" id="tabbar" aria-label="Sections"></nav>
 
 <script>
+/* ---------- app updates: check for a newer version and refresh ---------- */
+const APP_VERSION="2026-11-21.4";
+function appReload(){ try{ sessionStorage.setItem("im_reloaded",APP_VERSION); }catch(e){} location.replace(location.pathname+"?v="+Date.now()+location.hash); }
+async function checkUpdate(manual){
+  try{
+    const r=await fetch(location.pathname+"?check="+Date.now(),{cache:"no-store"}); const t=await r.text();
+    const m=t.match(/const APP_VERSION="([^"]+)"/); const live=m&&m[1];
+    const bar=document.getElementById("updBar");
+    if(live&&live!==APP_VERSION){ if(bar){ bar.classList.remove("hidden"); bar.querySelector("span").textContent="A new version of the app is ready."; } }
+    else if(manual&&bar){ bar.classList.remove("hidden"); bar.querySelector("span").textContent="You have the latest version ("+APP_VERSION+")."; setTimeout(()=>bar.classList.add("hidden"),3000); }
+  }catch(e){}
+}
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") checkUpdate(false); });
+window.addEventListener("load",()=>{ setTimeout(()=>checkUpdate(false),1500); setInterval(()=>checkUpdate(false),10*60*1000); });
+
 /* ---------- DATA: verified stories (from the master record) ---------- */
 const STORIES = [
  {id:"geo", title:"Forecast rebuilt on capacity data", where:"Vodafone, Sales Strategy and Planning", tags:["forecasting","quota","data","change"],
