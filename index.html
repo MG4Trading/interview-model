@@ -356,6 +356,16 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
       <div class="row full"><button class="btn primary" type="submit">Save application</button><span class="status" id="paStatus2"></span></div>
     </form>
   </details>
+  <details class="card small" id="hirePosts" style="gap:8px"><summary style="cursor:pointer"><b>LinkedIn hiring posts</b> <span class="muted">"I am hiring", "we are hiring", "please apply"</span></summary>
+    <p style="margin:6px 0">Opens your LinkedIn, already filtered to these posts, newest first. Read only: nothing is liked, commented or sent.</p>
+    <div class="row" style="gap:6px;flex-wrap:wrap">
+      <a class="btn sm primary" target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/content/?keywords=%22I%20am%20hiring%22%20OR%20%22I%27m%20hiring%22%20OR%20%22we%20are%20hiring%22%20OR%20%22we%27re%20hiring%22%20OR%20%22please%20apply%22&postedBy=%5B%22first%22%5D&datePosted=%22past-24h%22&sortBy=%22date_posted%22">1st degree connections: last 24 hours</a>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/content/?keywords=%22I%20am%20hiring%22%20OR%20%22I%27m%20hiring%22%20OR%20%22we%20are%20hiring%22%20OR%20%22we%27re%20hiring%22%20OR%20%22please%20apply%22&postedBy=%5B%22first%22%5D&datePosted=%22past-week%22&sortBy=%22date_posted%22">1st degree: past week</a>
+      <a class="btn sm primary" target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/content/?keywords=%22I%20am%20hiring%22%20OR%20%22I%27m%20hiring%22%20OR%20%22we%20are%20hiring%22%20OR%20%22we%27re%20hiring%22%20OR%20%22please%20apply%22&postedBy=%5B%22following%22%5D&datePosted=%22past-24h%22&sortBy=%22date_posted%22">People I follow: last 24 hours</a>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/content/?keywords=%22I%20am%20hiring%22%20OR%20%22I%27m%20hiring%22%20OR%20%22we%20are%20hiring%22%20OR%20%22we%27re%20hiring%22%20OR%20%22please%20apply%22&postedBy=%5B%22following%22%5D&datePosted=%22past-week%22&sortBy=%22date_posted%22">People I follow: past week</a>
+    </div>
+    <p class="muted" style="margin:6px 0">Found a good one? Copy the post or job link and paste it in <b>Add a role</b> above. It gets scored like any other role. If the LinkedIn app opens without the filter, press and hold the button and choose Open in Safari.</p>
+  </details>
   <div class="seg" id="pFilter" role="group" aria-label="Pipeline filter"></div>
   <div class="row small"><span class="muted">Sort:</span><div class="seg" id="pSort" role="group" aria-label="Sort roles"></div></div>
   <div id="pList" style="display:flex;flex-direction:column;gap:10px"></div>
