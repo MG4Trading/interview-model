@@ -1752,7 +1752,12 @@ async function ghReq(path,method,body){
   return r.json();
 }
 async function ghLoad(c){
-  try{ const j=await ghReq(`data/${c}.json`); GH.sha[c]=j.sha; return JSON.parse(b64dec(j.content)||"{}")||{}; }
+  try{ const j=await ghReq(`data/${c}.json`); GH.sha[c]=j.sha;
+    let s=j.content;
+    if(!s && j.git_url){ const r=await fetch(j.git_url+"?t="+Date.now(),{cache:"no-store",headers:{Authorization:"Bearer "+GH.token,Accept:"application/vnd.github+json"}}); if(!r.ok){ const e=new Error("GitHub "+r.status); e.status=r.status; throw e; } s=(await r.json()).content; }
+    const o=JSON.parse(b64dec(s)||"{}")||{};
+    if((j.size||0)>2000 && !Object.keys(o).length){ const e=new Error("Empty read"); e.status=0; throw e; }
+    GH.n=GH.n||{}; GH.n[c]=Object.keys(o).length; return o; }
   catch(e){ if(e.status===404){ GH.sha[c]=null; return {}; } throw e; }
 }
 function applyOp(obj,op){ if(op.t==="set") obj[op.id]=op.d; else if(op.t==="patch") obj[op.id]=Object.assign({},obj[op.id],op.d); else if(op.t==="del") delete obj[op.id]; }
@@ -1765,6 +1770,8 @@ function ghQueue(c,op){
 async function ghFlush(c,tries){
   tries=tries||0; if(GH.busy[c]) { GH.timers[c]=setTimeout(()=>ghFlush(c),500); return; }
   const n=GH.ops[c].length; if(!n) return;
+  const have=Object.keys(STORE.data[c]||{}).length, had=(GH.n&&GH.n[c])||0;
+  if(had>10 && have<had*0.5){ setSync("Not saved: your list looks incomplete. Reload the app."); return; }
   GH.busy[c]=true;
   const body={message:`app: update ${c} (${today()})`, content:b64enc(JSON.stringify(STORE.data[c],null,1)), branch:GH.branch};
   if(GH.sha[c]) body.sha=GH.sha[c];
