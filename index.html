@@ -1968,11 +1968,13 @@ function tailorPrompt(a,opt){
   return L.join("\n");
 }
 function scoreBlock(a){
-  const P=a.fitParts||{}, rows=[["requirements","Job requirements",35],["responsibilities","Key responsibilities",25],["location","Location",10],["industry","Industry",10],["lane","Lane",10],["level","Level",10]];
+  const P=a.fitParts||{}, rows= P.title!==undefined
+    ? [["title","Job title vs your titles",15],["requirements","Must-have requirements",20],["experience","Years and education",5],["responsibilities","Key responsibilities",25],["location","Location",7],["industry","Industry",8],["lane","Lane",7],["level","Level",8],["strengths","Your strengths",5]]
+    : [["requirements","Job requirements",35],["responsibilities","Key responsibilities",25],["location","Location",10],["industry","Industry",10],["lane","Lane",10],["level","Level",10]];
   return `<div class="card" style="gap:8px"><div class="row between"><div class="k">Match score</div><b style="font-size:20px">${num(a.fit)||0}%${a.bonus?` <span class="small" style="color:#1f7a4d">+${a.bonus} bonus</span>`:""}</b></div>
     ${a.blocked?`<span class="verdict v-hold">Has a blocker: see Gaps and flags</span>`:""}
-    ${rows.map(([k,l,m])=>{ const v=Number(P[k]||0), pct=Math.round(100*v/m); return `<div style="display:grid;grid-template-columns:130px 1fr 44px;gap:8px;align-items:center"><span class="small">${l}</span><div class="meter"><i style="width:${pct}%;${pct<50?"background:#b3261e":pct<75?"background:#d69e2e":""}"></i></div><span class="small" style="text-align:right;font-variant-numeric:tabular-nums">${v}/${m}</span></div>`; }).join("")}
-    ${a.bonus?`<span class="small muted">Bonus: ${(a.meets||[]).includes("fresh")?"+5 posted in the last day ":""}${a.bonus>5||!(a.meets||[]).includes("fresh")?"+5 named referral":""}</span>`:""}
+    ${rows.map(([k,l,m])=>{ const v=Number(P[k]||0), pct=Math.round(100*v/m); return `<div style="display:grid;grid-template-columns:150px 1fr 44px;gap:8px;align-items:center"><span class="small">${l}</span><div class="meter"><i style="width:${pct}%;${pct<50?"background:#b3261e":pct<75?"background:#d69e2e":""}"></i></div><span class="small" style="text-align:right;font-variant-numeric:tabular-nums">${v}/${m}</span></div>`; }).join("")}
+    ${a.bonus?`<span class="small muted">Bonus: ${(a.meets||[]).includes("fresh")?"+5 posted in the last day ":""}${a.bonus>5||!(a.meets||[]).includes("fresh")?"+10 named referral":""}</span>`:""}
   </div>`;
 }
 function refsBlock(a){
