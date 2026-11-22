@@ -330,6 +330,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 <section class="view" id="v-pipeline" aria-labelledby="h-p">
   <div class="row between"><h2 id="h-p">1. Explore and search</h2><span class="status" id="pMode"></span></div>
   <p class="lede" id="pLede"></p>
+  <div class="card small" id="refreshInfo" style="padding:10px 12px"><span class="muted">Connect GitHub to see when your data was last refreshed.</span></div>
   <details class="q" id="ghWrap">
     <summary><span class="qt">Sync with GitHub</span><span class="chip" id="ghChip">Set up</span></summary>
     <div class="qbody" style="display:flex;flex-direction:column;gap:10px">
@@ -380,7 +381,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 
 <script>
 /* ---------- app updates: check for a newer version and refresh ---------- */
-const APP_VERSION="2026-11-21.4";
+const APP_VERSION="2026-11-22.1";
 function appReload(){ try{ sessionStorage.setItem("im_reloaded",APP_VERSION); }catch(e){} location.replace(location.pathname+"?v="+Date.now()+location.hash); }
 async function checkUpdate(manual){
   try{
@@ -1822,7 +1823,38 @@ async function ghLoadAll(){
   COLS.forEach((c,i)=>{ const remote=res[i]; GH.ops[c].forEach(op=>applyOp(remote,op)); STORE.data[c]=remote; });
   saveLocal2(); STORE.mode="gh"; setSync("Synced to GitHub, private to you"); renderPipeline();
   const chip=$("#ghChip"); if(chip) chip.textContent="Connected";
+  GH.loadedAt=Date.now(); try{ localStorage.setItem("im_last_sync",String(GH.loadedAt)); }catch(e){}
+  loadRunInfo();
 }
+/* ---------- last refresh, last job search, next job search ---------- */
+const TZ_FMT={timeZone:"America/Toronto",weekday:"short",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"};
+const fmtWhen=t=>new Date(t).toLocaleString("en-CA",TZ_FMT).replace(/\./g,"");
+async function loadRunInfo(){
+  try{ const j=await ghReq("data/runs/jobsearch-last.json"); GH.run=JSON.parse(b64dec(j.content)||"{}"); }catch(e){}
+  renderRefresh();
+}
+function nextSearch(){
+  const now=new Date(), c=[];
+  for(let d=0; d<2; d++) [[11,30],[21,30]].forEach(([h,m])=>{ const t=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+d,h,m)); if(t>now) c.push(t); });
+  return c.sort((a,b)=>a-b)[0];
+}
+function renderRefresh(){
+  const el=$("#refreshInfo"); if(!el) return;
+  let last=GH.loadedAt; if(!last){ try{ last=+localStorage.getItem("im_last_sync")||0; }catch(e){} }
+  const r=GH.run||{}, names={linkedin:"LinkedIn",indeed:"Indeed",careers:"career sites",google:"Google","linkedin-post":"hiring posts"};
+  const by=Object.entries(r.bySite||{}).map(([k,n])=>`${names[k]||k} ${n}`).join(", ");
+  el.innerHTML=`<div class="row between" style="gap:8px;flex-wrap:wrap;align-items:flex-start">
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <span><b>Last refresh:</b> ${last?esc(fmtWhen(last)):"not yet"}</span>
+      <span><b>Last job search:</b> ${r.date?esc(fmtWhen(r.date)):"loading..."}${r.added?` &middot; ${r.added.length} new role${r.added.length===1?"":"s"}`:""}</span>
+      ${by?`<span class="muted">${esc(by)}</span>`:""}
+      <span><b>Next job search:</b> about ${esc(fmtWhen(nextSearch()))}</span>
+    </div>
+    <button type="button" class="btn sm" id="refreshNow">&#8635; Refresh now</button>
+  </div>`;
+  $("#refreshNow").addEventListener("click",()=>{ const b=$("#refreshNow"); b.textContent="Refreshing..."; ghLoadAll().catch(()=>{ b.textContent="Could not refresh. Try again"; }); });
+}
+setInterval(()=>{ if(document.visibilityState==="visible") renderRefresh(); },60000);
 async function ghConnect(token){
   GH.token=token; try{ await ghLoadAll(); return true; }
   catch(e){ STORE.mode="local"; setSync(e.status===401||e.status===404||e.status===403?"Token cannot open interview-model-data":"Could not reach GitHub; showing the copy on this device"); return false; }
