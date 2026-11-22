@@ -213,9 +213,12 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 <!-- DECODE -->
 <section class="view" id="v-decode" aria-labelledby="h-decode">
   <h2 id="h-decode">2. Decode the job</h2>
-  <p class="lede">Roles with Next step: Decode land here. Open one to decode it, then set Next step to Apply. Or paste a job description. You get 7 checks: the role objective, the hiring manager's main problem, company news, salary, the hiring manager, your connections there, and your match.</p>
+  <p class="lede">Paste a job link, or set a role's Next step to Decode. Each role shows: 1 the company, 2 salary, 3 who you know, 4 your match, 5 other details, then your next step: tailor documents or drop.</p>
+  <div class="card" style="gap:8px;border:2px solid var(--accent)"><div class="k">Add a job from its link</div>
+    <div class="row" style="gap:6px;flex-wrap:nowrap"><input type="url" data-addlink inputmode="url" autocomplete="off" placeholder="Paste the job link: LinkedIn, company site..." style="flex:1;min-width:0"><button type="button" class="btn primary" data-addlinkbtn>Add</button></div>
+    <span class="small muted" data-addlinkmsg>The app reads the job page, scores it and researches the company for you. Takes 1 to 3 minutes.</span></div>
   <div id="dList" style="display:flex;flex-direction:column;gap:10px"></div>
-  <div class="card">
+  <div class="card hidden">
     <label for="jdCompany">Company and role
       <input type="text" id="jdCompany" value="Example: Manager, Sales Operations (SaaS, Toronto)">
     </label>
@@ -343,8 +346,11 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
   </details>
   <div id="pSummary" class="card"></div>
   <div id="pProgress" class="card"></div>
-  <details class="q" id="pAddWrap">
-    <summary><span class="qt">Add an application</span><span class="chip">Add</span></summary>
+  <div id="pAddWrap"><div class="card" style="gap:8px;border:2px solid var(--accent)"><div class="k">Add a job from its link</div>
+    <div class="row" style="gap:6px;flex-wrap:nowrap"><input type="url" data-addlink inputmode="url" autocomplete="off" placeholder="Paste the job link: LinkedIn, company site..." style="flex:1;min-width:0"><button type="button" class="btn primary" data-addlinkbtn>Add</button></div>
+    <span class="small muted" data-addlinkmsg>The app reads the job page, scores it and researches the company for you. Takes 1 to 3 minutes.</span></div>
+  <details class="hidden">
+    <summary>Old form</summary>
     <form id="pAdd" class="qbody">
       <label for="paCompany">Company<input type="text" id="paCompany" required></label>
       <label for="paRole">Role<input type="text" id="paRole" required></label>
@@ -359,6 +365,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
       <div class="row full"><button class="btn primary" type="submit">Save application</button><span class="status" id="paStatus2"></span></div>
     </form>
   </details>
+  </div>
   <details class="card small" id="hirePosts" style="gap:8px"><summary style="cursor:pointer"><b>LinkedIn hiring posts</b> <span class="muted">"I am hiring", "we are hiring", "please apply"</span></summary>
     <p style="margin:6px 0">Opens your LinkedIn, already filtered to these posts, newest first. Read only: nothing is liked, commented or sent.</p>
     <div class="row" style="gap:6px;flex-wrap:wrap">
@@ -381,7 +388,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 
 <script>
 /* ---------- app updates: check for a newer version and refresh ---------- */
-const APP_VERSION="2026-11-22.1";
+const APP_VERSION="2026-11-22.2";
 function appReload(){ try{ sessionStorage.setItem("im_reloaded",APP_VERSION); }catch(e){} location.replace(location.pathname+"?v="+Date.now()+location.hash); }
 async function checkUpdate(manual){
   try{
@@ -876,7 +883,7 @@ function renderPhaseUI(){
   });
   if((location.hash||"")==="#decode") renderDecodeList();
 }
-function loadDecodeFor(id){
+function loadDecodeForOld(id){
   const a=STORE.data.apps[id]; if(!a) return;
   $("#jdCompany").value = a.company+": "+(a.role||""); $("#jdLink").value=a.link||""; $("#jdText").value=a.jd||"";
   if(a.decode&&(a.decode.purpose||a.decode.objective)) renderDecode(Object.assign({title:a.company+": "+(a.role||""), company:a.company, role:a.role, jd:a.jd||"", source:a.decode.status==="ready"?"deep":"ai"}, a.decode));
@@ -886,15 +893,124 @@ function loadDecodeFor(id){
   setTimeout(()=>{ const o=$("#decodeOut"); if(o&&o.scrollIntoView) o.scrollIntoView({behavior:"smooth",block:"start"}); },60);
 }
 let DECODE_SEL="";
+/* ---------- add a job from its link ---------- */
+function cleanJobLink(u){
+  u=(u||"").trim(); const m=u.match(/currentJobId=(\d{6,})/); if(m) return "https://www.linkedin.com/jobs/view/"+m[1]+"/";
+  const l=u.match(/linkedin\.com\/(?:comm\/)?jobs\/view\/(?:[^/?#]*-)?(\d{6,})/); if(l) return "https://www.linkedin.com/jobs/view/"+l[1]+"/";
+  return u.replace(/[?&](utm_[^&]+|trk=[^&]+|refId=[^&]+|trackingId=[^&]+)/g,"");
+}
+function addJobLink(raw,msgEl){
+  const say=t=>{ if(msgEl) msgEl.textContent=t; };
+  const url=cleanJobLink(raw);
+  if(!/^https?:\/\/\S+\.\S+/.test(url)){ say("That does not look like a link. Copy the job link and paste it here."); return; }
+  if(STORE.mode!=="gh"){ say("Connect GitHub first (Sync with GitHub in Explore)."); return; }
+  const dup=appsArr().find(a=>a.link===url||(a.links||[]).includes(url));
+  if(dup){ say("You already have this job. Opening it."); applyNext(dup.id,"decode"); return; }
+  const id="link-"+Date.now().toString(36);
+  sUpdate("apps",id,{company:"Loading...",role:"Reading the job page...",link:url,links:[url],status:"shortlist",phase:"decode",phaseDate:today(),source:"link",needsFetch:true,added:today(),lane:"other"});
+  say("Added. Reading the job page and researching the company...");
+  DECODE_SEL=id; location.hash="decode"; setTimeout(()=>{ loadDecodeFor(id); watchRole(id); },80);
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest&&e.target.closest("[data-addlinkbtn]"); if(!b) return;
+  const box=b.closest(".card"), inp=box.querySelector("[data-addlink]"), msg=box.querySelector("[data-addlinkmsg]");
+  addJobLink(inp.value,msg); inp.value="";
+});
+document.addEventListener("keydown",e=>{ if(e.key==="Enter"&&e.target.matches&&e.target.matches("[data-addlink]")){ e.preventDefault(); const box=e.target.closest(".card"); addJobLink(e.target.value,box.querySelector("[data-addlinkmsg]")); e.target.value=""; } });
+const WATCH={};
+function watchRole(id){
+  if(WATCH[id]) return; const start=Date.now();
+  WATCH[id]=setInterval(async()=>{
+    if(Date.now()-start>9*60*1000){ clearInterval(WATCH[id]); delete WATCH[id]; return; }
+    if(ghPending()) return;
+    try{ await ghLoadAll(); }catch(e){ return; }
+    const a=STORE.data.apps[id]; if(!a){ clearInterval(WATCH[id]); delete WATCH[id]; return; }
+    if(DECODE_SEL===id && location.hash.replace("#","")==="decode") loadDecodeFor(id,true);
+    if(!a.needsFetch && (a.research||a.fetchError)){ clearInterval(WATCH[id]); delete WATCH[id]; }
+  },20000);
+}
+/* ---------- visual decode ---------- */
+function loadDecodeFor(id,quiet){
+  const a=STORE.data.apps[id]; if(!a) return;
+  DECODE_SEL=id; const o=$("#decodeOut"); if(o) o.innerHTML=decodeView(Object.assign({id},a));
+  renderDecodeList(); bindDecode();
+  if(!a.needsFetch && !a.research && !a.fetchError && phaseOf(a)==="decode") watchRole(id);
+  if(a.needsFetch) watchRole(id);
+  if(!quiet) setTimeout(()=>{ const o=$("#decodeOut"); if(o&&o.scrollIntoView) o.scrollIntoView({behavior:"smooth",block:"start"}); },60);
+}
+const DSEC=(n,icon,title,body,color)=>`<div class="card" style="gap:10px;border-left:6px solid ${color}"><div class="row" style="gap:8px;align-items:center"><span style="background:${color};color:#fff;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;font-weight:700">${n}</span><b style="font-size:18px">${icon} ${title}</b></div>${body}</div>`;
+const snipList=arr=>(arr||[]).length?`<ul class="clean small" style="display:flex;flex-direction:column;gap:6px">${arr.map(s=>`<li>${esc(s.text)}${s.rating?` <span class="chip">&#9733; ${esc(String(s.rating))}</span>`:""} <a class="muted" href="${esc(s.link)}" target="_blank" rel="noopener">${esc(s.source)}</a></li>`).join("")}</ul>`:`<span class="small muted">Nothing found yet.</span>`;
+const newsList=arr=>`<ul class="clean small" style="display:flex;flex-direction:column;gap:6px">${arr.map(n=>`<li><a href="${esc(n.link)}" target="_blank" rel="noopener"><b>${esc(n.title)}</b></a> <span class="muted">${esc(n.source)}${n.date?" &middot; "+esc(n.date):""}</span></li>`).join("")}</ul>`;
+const kMoney=n=>n?"$"+Math.round(n/1000)+"K":"";
+function salaryBar(lo,hi,lo2,hi2){
+  const min=50000,max=250000,pc=x=>Math.max(0,Math.min(100,(x-min)/(max-min)*100));
+  const band=(l,h,c,lab)=>l&&h?`<div style="position:absolute;left:${pc(l)}%;width:${Math.max(2,pc(h)-pc(l))}%;top:${lab==="p"?4:22}px;height:14px;background:${c};border-radius:7px"></div>`:"";
+  return `<div style="position:relative;height:42px;background:#eef2f7;border-radius:8px;margin:6px 0">${band(lo,hi,"#1f7a4d","p")}${band(lo2,hi2,"#2b6cb0","w")}</div><div class="row between small muted"><span>$50K</span><span>$150K</span><span>$250K</span></div>`;
+}
+function decodeView(a){
+  const R=a.research||{}, P=R.profile||{}, facts=P.facts||{}, f=num(a.fit)||0, col=f>=85?"#1f7a4d":f>=70?"#2b6cb0":f>=55?"#b7791f":"#c0392b";
+  const head=`<div class="card" style="gap:10px"><div class="row" style="gap:14px;align-items:center;flex-wrap:nowrap">
+      <div style="flex:none;width:74px;height:74px;border-radius:50%;background:conic-gradient(${col} ${f*3.6}deg,#e5e9f0 0);display:flex;align-items:center;justify-content:center"><div style="width:58px;height:58px;border-radius:50%;background:var(--card,#fff);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:${col}">${f?f+"%":"..."}</div></div>
+      <div style="min-width:0"><div style="font-size:19px;font-weight:800">${esc(a.company||"")}</div><div class="small">${esc(a.role||"")}</div>
+      <div class="row small" style="gap:6px;margin-top:4px">${a.level?`<span class="chip">${esc(a.level)}</span>`:""}${a.refCount?`<span class="verdict v-show">&#129309; ${a.refCount} you know</span>`:""}${a.link?`<a class="chip" href="${esc(a.link)}" target="_blank" rel="noopener">Open job ad &#8599;</a>`:""}</div></div></div></div>`;
+  if(a.needsFetch) return head+`<div class="card" style="gap:6px;background:#fff8e7"><b>&#9203; Reading the job page and researching the company...</b><span class="small">Usually 1 to 3 minutes. You can leave this screen; it fills in on its own.</span></div>`;
+  let out=head;
+  if(a.fetchError) out+=`<div class="card" style="gap:8px;background:#fdecea"><b>${esc(a.fetchError)}</b><textarea data-pastejd="${a.id}" placeholder="Paste the job description here" style="min-height:120px"></textarea><div class="row"><button class="btn sm primary" data-savejd="${a.id}">Save and score</button></div></div>`;
+  const waiting=`<span class="small muted">&#9203; Research is on its way (1 to 3 minutes).</span>`;
+  const hasR=!!R.date;
+  // 1 company
+  const fchips=Object.entries(facts).slice(0,6).map(([k,v])=>`<span class="chip"><b>${esc(k)}:</b> ${esc(String(v))}</span>`).join("");
+  const lay=R.layoffs||[];
+  const c1=!hasR?waiting:`${P.description?`<p class="small" style="margin:0">${esc(P.description)}</p>`:snipList(R.background)}
+    ${fchips?`<div class="row" style="gap:6px;flex-wrap:wrap">${fchips}</div>`:""}${P.website?`<a class="small" href="${esc(P.website)}" target="_blank" rel="noopener">${esc(P.website)}</a>`:""}
+    <details open><summary class="small"><b>Products and services</b></summary>${snipList(R.products)}</details>
+    <details><summary class="small"><b>Competition</b></summary>${snipList(R.competitors)}</details>
+    <details open><summary class="small"><b>Growth signals</b> <span class="muted">(news, last month)</span></summary>${(R.growth||[]).length?newsList(R.growth):`<span class="small muted">No recent news found.</span>`}</details>
+    <div style="border-radius:8px;padding:8px 10px;background:${lay.length?"#fdecea":"#e8f5e9"}"><b class="small">${lay.length?"&#9888; Layoff news in the past year":"&#10003; No layoff news in the past year"}</b>${lay.length?newsList(lay):""}</div>
+    <details><summary class="small"><b>Culture</b> <span class="muted">(employee reviews)</span></summary>${snipList(R.culture)}</details>`;
+  out+=DSEC(1,"&#127970;","Company",c1,"#2b4c9b");
+  // 2 salary
+  const s=a.salary||{}, pLo=num(s.postedMin), pHi=num(s.postedMax), E=R.salaryEstimate||{};
+  const c2=`<div class="row" style="gap:16px;flex-wrap:wrap">
+      <div><div class="small muted">Posted in the ad</div><div style="font-size:20px;font-weight:800;color:#1f7a4d">${pLo||pHi?`${kMoney(pLo)} to ${kMoney(pHi)}`:"Not posted"}</div></div>
+      <div><div class="small muted">Market estimate${E.samples?` (${E.samples} sources)`:""}</div><div style="font-size:20px;font-weight:800;color:#2b6cb0">${E.low?`${kMoney(E.low)} to ${kMoney(E.high)}`:(hasR?"Not found":"...")}</div></div></div>
+    ${(pLo||E.low)?salaryBar(pLo,pHi,E.low,E.high)+`<div class="row small" style="gap:10px"><span><span style="display:inline-block;width:10px;height:10px;background:#1f7a4d;border-radius:2px"></span> Posted</span><span><span style="display:inline-block;width:10px;height:10px;background:#2b6cb0;border-radius:2px"></span> Market</span></div>`:""}
+    ${(pLo&&pHi)?`<span class="small"><b>Ask for:</b> about ${kMoney(pLo+0.75*(pHi-pLo))}, the top quarter of the posted range.</span>`:E.low?`<span class="small"><b>Ask for:</b> about ${kMoney(E.low+0.75*(E.high-E.low))}, the top quarter of the market range.</span>`:""}
+    ${(R.salaryWeb||[]).length?`<details><summary class="small">Where the estimate comes from</summary>${snipList(R.salaryWeb)}</details>`:""}`;
+  out+=DSEC(2,"&#128176;","Salary",c2,"#1f7a4d");
+  // 3 connections
+  const q=encodeURIComponent(a.company||"");
+  const c3=((a.refs||[]).length?refsBlock(a).replace('<div class="card" style="gap:8px">','<div style="display:flex;flex-direction:column;gap:8px">'):`<span class="small">No 1st degree connections found at ${esc(a.company||"this company")}.</span>`)+
+    `<div class="row" style="gap:6px;flex-wrap:wrap"><a class="btn sm" target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=${q}&network=%5B%22S%22%5D">2nd degree at ${esc(a.company||"")}</a><a class="btn sm ghost" target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=${q}%20recruiter">Recruiters</a><a class="btn sm ghost" target="_blank" rel="noopener" href="https://www.linkedin.com/search/results/people/?keywords=${q}%20${encodeURIComponent((a.role||"").replace(/\(.*\)/,"").split(/,| - /)[0].includes("Operations")?"VP sales":"director")}">Possible hiring managers</a></div>`;
+  out+=DSEC(3,"&#129309;","Connections and referral",c3,"#7a4d1f");
+  // 4 match
+  const c4=`${a.fitParts?scoreBlock(a):`<span class="small muted">${a.needsFetch?"Scoring...":"No score yet."}</span>`}
+    <div class="grid2">${(a.fitWhy||[]).length?`<div class="card stripe show" style="gap:6px"><div class="k">Why it fits</div><ul class="clean small">${a.fitWhy.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}${(a.fitGaps||[]).length?`<div class="card stripe hold" style="gap:6px"><div class="k">Gaps and flags</div><ul class="clean small">${a.fitGaps.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}</div>`;
+  out+=DSEC(4,"&#127919;","Your match",c4,col);
+  // 5 other
+  const loc=(a.role||"").match(/\(([^)]+)\)$/);
+  const c5=`<div class="row" style="gap:6px;flex-wrap:wrap">${loc?`<span class="chip">&#128205; ${esc(loc[1])}</span>`:""}${a.lane?`<span class="chip">${esc(a.lane)}</span>`:""}${a.postedAt?`<span class="chip">Posted ${esc(a.postedAt)}</span>`:""}${a.linkSource?`<span class="chip">From ${esc(a.linkSource)}</span>`:""}${a.blocked?`<span class="verdict v-hold">Blocker in the ad</span>`:""}</div>
+    ${a.jd?`<details><summary class="small"><b>Full job description</b></summary><div class="small" style="white-space:pre-wrap;max-height:50vh;overflow:auto">${esc(a.jd)}</div></details>`:""}`;
+  out+=DSEC(5,"&#128204;","Other details",c5,"#666");
+  // next step
+  out+=`<div class="card" style="gap:10px;background:#f4f7fb"><b style="font-size:18px">Next step</b><div class="row" style="gap:10px;flex-wrap:nowrap"><button class="btn primary" style="flex:1;padding:14px;font-size:17px" data-dgo="apply" data-id="${a.id}">&#9998; Tailor documents</button><button class="btn" style="flex:1;padding:14px;font-size:17px" data-dgo="ignore" data-id="${a.id}">&#10005; Drop</button></div></div>`;
+  return out;
+}
+function bindDecode(){
+  const o=$("#decodeOut"); if(!o) return;
+  o.querySelectorAll("[data-dgo]").forEach(b=>b.addEventListener("click",()=>{ applyNext(b.dataset.id,b.dataset.dgo); if(b.dataset.dgo==="ignore"){ o.innerHTML=`<div class="card small">Dropped. It moved to Ignored in Explore.</div>`; DECODE_SEL=""; } }));
+  o.querySelectorAll("[data-savejd]").forEach(b=>b.addEventListener("click",()=>{ const id=b.dataset.savejd, t=o.querySelector(`[data-pastejd="${id}"]`).value.trim(); if(t.length<200){ b.textContent="Paste the full description"; return; } sUpdate("apps",id,{jd:t,needsScore:true,fetchError:""}); b.textContent="Saved. Scoring in 1 to 2 minutes"; watchRole(id); }));
+}
+
 function renderDecodeList(){
   const el=$("#dList"); if(!el) return;
   const list=appsArr().filter(a=>phaseOf(a)==="decode").sort((x,y)=>(num(y.fit)||0)-(num(x.fit)||0));
   el.innerHTML = list.length ? `<div class="k">Jobs you are interested in (${list.length})</div>` + list.map(a=>`<div class="card" style="gap:8px${a.id===DECODE_SEL?";border:2px solid var(--accent)":""}">
       <div class="row between"><span class="qt">${esc(a.company)}</span>${num(a.fit)?`<span class="chip">Fit ${num(a.fit)}%</span>`:""}</div>
       <span class="small">${esc(a.role||"")}</span>
-      <div class="row small muted">${a.level?`<span class="chip">${esc(a.level)}</span>`:""}${a.refCount?`<span class="verdict v-show">&#129309; ${a.refCount} you know</span>`:""}${a.decode&&a.decode.status==="ready"?`<span class="verdict v-show">Deep decode ready</span>`:a.decode&&a.decode.status==="requested"?`<span class="verdict v-offer">Deep decode in Claude</span>`:""}</div>
+      <div class="row small muted">${a.level?`<span class="chip">${esc(a.level)}</span>`:""}${a.refCount?`<span class="verdict v-show">&#129309; ${a.refCount} you know</span>`:""}${a.needsFetch?`<span class="verdict v-offer">&#9203; Reading the job page</span>`:a.research?`<span class="verdict v-show">Research ready</span>`:`<span class="verdict v-offer">Research coming</span>`}</div>
       <div class="row">
-        <button class="btn sm" data-dopen="${a.id}">Open decode</button>
+        <button class="btn sm primary" data-dopen="${a.id}">Open</button>
         ${nextSelect(a)}
         ${a.link?`<a class="btn sm ghost" href="${esc(a.link)}" target="_blank" rel="noopener" style="text-decoration:none">Job ad</a>`:""}
       </div>
