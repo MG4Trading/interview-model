@@ -388,7 +388,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 
 <script>
 /* ---------- app updates: check for a newer version and refresh ---------- */
-const APP_VERSION="2026-11-23.1";
+const APP_VERSION="2026-11-23.2";
 function appReload(){ try{ sessionStorage.setItem("im_reloaded",APP_VERSION); }catch(e){} location.replace(location.pathname+"?v="+Date.now()+location.hash); }
 async function checkUpdate(manual){
   try{
@@ -1969,7 +1969,7 @@ async function loadRunInfo(){
 }
 function nextSearch(){
   const now=new Date(), c=[];
-  for(let d=0; d<2; d++) [[11,30],[21,30]].forEach(([h,m])=>{ const t=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+d,h,m)); if(t>now) c.push(t); });
+  for(let d=0; d<2; d++) [[9,45]].forEach(([h,m])=>{ const t=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+d,h,m)); if(t>now) c.push(t); });
   return c.sort((a,b)=>a-b)[0];
 }
 function renderRefresh(){
