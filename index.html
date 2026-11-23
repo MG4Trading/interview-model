@@ -388,7 +388,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 
 <script>
 /* ---------- app updates: check for a newer version and refresh ---------- */
-const APP_VERSION="2026-11-22.2";
+const APP_VERSION="2026-11-23.1";
 function appReload(){ try{ sessionStorage.setItem("im_reloaded",APP_VERSION); }catch(e){} location.replace(location.pathname+"?v="+Date.now()+location.hash); }
 async function checkUpdate(manual){
   try{
@@ -1041,6 +1041,22 @@ async function loadProfile(){
   renderBuilder(); return PROFILE;
 }
 const PARTS={1:"Part A: The opening questions",6:"Part B: Your big stories",15:"Part C: How you do the job"};
+let LASTSTAGE="";
+function guideBlock(x){
+  if(!x.who&&!x.framework&&!(x.traps||[]).length) return "";
+  const tbl=t=>`<div class="small"><b>${esc(t.title)}</b><div style="overflow:auto"><table class="small" style="border-collapse:collapse;width:100%;margin-top:4px">${t.rows.map((r,i)=>`<tr>${r.map(c=>i?`<td style="border:1px solid #dde3ea;padding:6px;vertical-align:top">${esc(c)}</td>`:`<th style="border:1px solid #dde3ea;padding:6px;background:#eef2f7;text-align:left">${esc(c)}</th>`).join("")}</tr>`).join("")}</table></div></div>`;
+  return `<div style="display:flex;flex-direction:column;gap:8px">
+    ${x.who?`<div class="small"><b>Who asks:</b> ${esc(x.who)}</div>`:""}
+    ${x.framework?`<div class="small" style="background:#eef2f7;border-radius:8px;padding:8px 10px"><b>Framework:</b> ${esc(x.framework)}</div>`:""}
+    ${(x.notes||[]).map(n=>`<div class="small" style="background:#fff8e7;border-radius:8px;padding:8px 10px">${esc(n)}</div>`).join("")}
+    <div class="grid2">
+      ${(x.traps||[]).length?`<div class="card" style="gap:4px;border-left:4px solid #c0392b"><div class="k" style="color:#c0392b">Traps to avoid</div><ul class="clean small">${x.traps.map(t=>`<li>&#10005; ${esc(t)}</li>`).join("")}</ul></div>`:""}
+      ${(x.tips||[]).length?`<div class="card" style="gap:4px;border-left:4px solid #2e7d32"><div class="k" style="color:#2e7d32">Tips</div><ul class="clean small">${x.tips.map(t=>`<li>&#10003; ${esc(t)}</li>`).join("")}</ul></div>`:""}
+    </div>
+    ${(x.extra||[]).map(w=>`<details class="small" style="background:#f4f7fb;border-radius:8px;padding:8px 10px"><summary style="cursor:pointer"><b>${esc(w.title)}</b></summary>${w.lines.map(l=>`<p style="margin:6px 0">${esc(l)}</p>`).join("")}</details>`).join("")}
+    ${(x.tables||[]).map(tbl).join("")}
+  </div>`;
+}
 /* audio with real pauses at every / */
 const AUD={playing:false};
 function sayPaused(text){
@@ -1103,8 +1119,9 @@ function builderCard(x,key,a){
   const sample=(x.sample||[]).map(s=>`<p style="margin:6px 0">${s.label?`<b style="color:var(--accent)">${esc(s.label)}</b> `:""}${esc(s.text)}</p>`).join("");
   const st=W.stress;
   return `<details class="card" data-bq="${x.n}" data-bkey="${esc(key)}" style="gap:10px">
-   <summary style="cursor:pointer"><b style="font-size:17px">Q${x.n}. ${esc(x.q)}</b>${W.final?` <span class="chip" style="color:#2e7d32;border-color:#2e7d32">Final ready</span>`:W.status==="requested"?` <span class="chip">Enhancing</span>`:""}</summary>
+   <summary style="cursor:pointer"><b style="font-size:17px">${x.id?esc(x.id):"Q"+x.n}. ${esc(x.q)}</b>${x.locked?` <span class="chip" style="color:#2e7d32;border-color:#2e7d32">&#128274; Locked ${esc(x.locked)}</span>`:""}${W.final?` <span class="chip" style="color:#2e7d32;border-color:#2e7d32">Final ready</span>`:W.status==="requested"?` <span class="chip">Enhancing</span>`:""}</summary>
    <div class="small"><b>Shape:</b> <span class="chip" style="font-weight:700">${esc(x.shape)}</span> &nbsp; <b>Why they ask:</b> <i>${esc(x.why)}</i></div>
+   ${guideBlock(x)}
    <div style="border:2px solid var(--accent);border-radius:10px;padding:10px 12px">
      <div class="k">Short answer (30 seconds)</div><p style="margin:6px 0;font-size:16px">${esc(shortOf(x))}</p>${audBar("short:"+key,"Hear short")}
    </div>
@@ -1141,9 +1158,10 @@ function renderBuilder(){
   ${tailored?`<div class="card small" style="border:2px solid var(--accent)"><b>Tailored for ${esc(a.company)}</b>: ${esc(a.role||"")}. Same stories, rewritten for this company, role and job.</div>`:""}
   ${other?`<div class="card small">These are your base answers (Salesforce). The ${esc(a.company)} version builds with its prep pack.</div>`:""}`;
   const q=BQ.toLowerCase().trim();
+  LASTSTAGE="";
   (ab.questions||[]).forEach(x=>{ const key=pre+"q"+x.n; const W=(STORE.data.words||{})[key]||{};
     if(q&&!JSON.stringify(x).toLowerCase().includes(q)&&!String(W.text||"").toLowerCase().includes(q)&&!String(W.final||"").toLowerCase().includes(q)) return;
-    if(PARTS[x.n]&&!q) html+=`<h3 style="margin:14px 0 4px;color:#c0392b">${PARTS[x.n]}</h3>`; html+=builderCard(x,key,a); });
+    const hd=x.stage?(x.stage!==LASTSTAGE?x.stage:""):PARTS[x.n]; LASTSTAGE=x.stage||""; if(hd&&!q) html+=`<h3 style="margin:14px 0 4px;color:#c0392b">${esc(hd)}</h3>`; html+=builderCard(x,key,a); });
   el.innerHTML=html;
   openQ.forEach(n=>{ const d=el.querySelector(`details[data-bq="${n}"]`); if(d) d.open=true; });
   const findX=k=>{ const n=+String(k).split("q").pop(); return (ab.questions||[]).find(z=>z.n===n); };
