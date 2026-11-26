@@ -2232,7 +2232,7 @@ async function docDownload(id,name,btn){
   try{ btn.textContent="Downloading..."; const j=await ghReq(`data/docs/${id}/${name}`);
     let bytes; if(j.content) bytes=b64ToBytes(j.content); else { const r=await fetch(j.git_url,{headers:{Authorization:"Bearer "+GH.token,Accept:"application/vnd.github+json"}}); bytes=b64ToBytes((await r.json()).content); }
     const ext=name.split(".").pop().toLowerCase(), mime={docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",pdf:"application/pdf",md:"text/plain",txt:"text/plain"}[ext]||"application/octet-stream";
-    const a=STORE.data.apps[id]||{}, nice=`Mohamed_Elgazar_${(a.company||"").replace(/[^A-Za-z0-9]+/g,"_")}_${name}`;
+    const a=STORE.data.apps[id]||{}, clean=v=>(v||"").replace(/\s*\([^)]*\)\s*$/,"").replace(/[\\/:*?"<>|]+/g," ").replace(/\s+/g," ").trim(), kind={"resume.docx":"Resume","cover-letter.docx":"Cover Letter","outreach.md":"Outreach"}[name]||name.replace(/\.[^.]+$/,""), nice=["Mohamed Elgazar",clean(a.role),clean(a.company),kind].filter(Boolean).join(".")+"."+ext;
     const url=URL.createObjectURL(new Blob([bytes],{type:mime})); const l=document.createElement("a"); l.href=url; l.download=nice; document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
     btn.textContent="Downloaded"; }catch(e){ btn.textContent="Could not download, try again"; }
 }
