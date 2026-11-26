@@ -388,7 +388,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 
 <script>
 /* ---------- app updates: check for a newer version and refresh ---------- */
-const APP_VERSION="2026-11-24.1";
+const APP_VERSION="2026-11-26.1";
 function appReload(){ try{ sessionStorage.setItem("im_reloaded",APP_VERSION); }catch(e){} location.replace(location.pathname+"?v="+Date.now()+location.hash); }
 async function checkUpdate(manual){
   try{
@@ -1965,11 +1965,40 @@ const TZ_FMT={timeZone:"America/Toronto",weekday:"short",month:"short",day:"nume
 const fmtWhen=t=>new Date(t).toLocaleString("en-CA",TZ_FMT).replace(/\./g,"");
 async function loadRunInfo(){
   try{ const j=await ghReq("data/runs/jobsearch-last.json"); GH.run=JSON.parse(b64dec(j.content)||"{}"); }catch(e){}
+  renderRefresh(); autoSearch();
+}
+let SEARCH_MSG=""; let SEARCH_WATCH=null;
+async function ghDispatch(){
+  const r=await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/actions/workflows/jobsearch.yml/dispatches`,{method:"POST",headers:{Authorization:"Bearer "+GH.token,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"},body:JSON.stringify({ref:GH.branch||"main"})});
+  if(r.status!==204){ const e=new Error("GitHub "+r.status); e.status=r.status; throw e; }
+}
+async function startSearch(manual){
+  if(STORE.mode!=="gh"||!GH.token){ SEARCH_MSG="Connect GitHub first."; renderRefresh(); return; }
+  try{ await ghDispatch(); try{ localStorage.setItem("im_dispatch",String(Date.now())); }catch(e){}
+    SEARCH_MSG=(manual?"Job search started.":"Today's job search had not run, so the app started it.")+" New roles arrive in about 10 minutes.";
+    watchSearch(); }
+  catch(e){ SEARCH_MSG=(e.status===403||e.status===404)?"Your GitHub key cannot start the search. Give it Actions: Read and write on interview-model-data.":"Could not start the search. Try again."; }
   renderRefresh();
+}
+function watchSearch(){
+  if(SEARCH_WATCH) clearInterval(SEARCH_WATCH);
+  const before=(GH.run||{}).date||"", t0=Date.now();
+  SEARCH_WATCH=setInterval(async()=>{
+    try{ const j=await ghReq("data/runs/jobsearch-last.json"); const run=JSON.parse(b64dec(j.content)||"{}");
+      if(run.date&&run.date!==before){ clearInterval(SEARCH_WATCH); SEARCH_WATCH=null; GH.run=run; SEARCH_MSG="Job search finished. "+((run.added||[]).length)+" new roles added."; await ghLoadAll().catch(()=>{}); renderRefresh(); return; } }catch(e){}
+    if(Date.now()-t0>20*60000){ clearInterval(SEARCH_WATCH); SEARCH_WATCH=null; SEARCH_MSG="The search is taking longer than usual. Tap Refresh now in a few minutes."; renderRefresh(); }
+  },60000);
+}
+function autoSearch(){
+  if(STORE.mode!=="gh"||!GH.token||SEARCH_WATCH) return;
+  const last=Date.parse((GH.run||{}).date||"")||0; let sent=0; try{ sent=+localStorage.getItem("im_dispatch")||0; }catch(e){}
+  const hrs=(Date.now()-last)/3600000, since=(Date.now()-sent)/3600000;
+  const torHour=+new Date().toLocaleString("en-CA",{timeZone:"America/Toronto",hour:"numeric",hour12:false});
+  if(last && hrs>20 && since>2 && torHour>=4) startSearch(false);
 }
 function nextSearch(){
   const now=new Date(), c=[];
-  for(let d=0; d<2; d++) [[8,7]].forEach(([h,m])=>{ const t=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+d,h,m)); if(t>now) c.push(t); });
+  for(let d=0; d<2; d++) [[8,7],[9,37],[11,7]].forEach(([h,m])=>{ const t=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate()+d,h,m)); if(t>now) c.push(t); });
   return c.sort((a,b)=>a-b)[0];
 }
 function renderRefresh(){
@@ -1984,8 +2013,9 @@ function renderRefresh(){
       ${by?`<span class="muted">${esc(by)}</span>`:""}
       <span><b>Next job search:</b> about ${esc(fmtWhen(nextSearch()))}</span>
     </div>
-    <button type="button" class="btn sm" id="refreshNow">&#8635; Refresh now</button>
-  </div>`;
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn sm" id="refreshNow">&#8635; Refresh now</button><button type="button" class="btn sm" id="searchNow">&#9658; Run job search</button></div>
+  </div>${SEARCH_MSG?`<div class="small" style="margin-top:6px"><b>${esc(SEARCH_MSG)}</b></div>`:""}`;
+  $("#searchNow").addEventListener("click",()=>{ $("#searchNow").textContent="Starting..."; startSearch(true); });
   $("#refreshNow").addEventListener("click",()=>{ const b=$("#refreshNow"); b.textContent="Refreshing..."; ghLoadAll().catch(()=>{ b.textContent="Could not refresh. Try again"; }); });
 }
 setInterval(()=>{ if(document.visibilityState==="visible") renderRefresh(); },60000);
