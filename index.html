@@ -388,7 +388,7 @@ th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-a
 
 <script>
 /* ---------- app updates: check for a newer version and refresh ---------- */
-const APP_VERSION="2026-11-26.1";
+const APP_VERSION="2026-11-27.1";
 function appReload(){ try{ sessionStorage.setItem("im_reloaded",APP_VERSION); }catch(e){} location.replace(location.pathname+"?v="+Date.now()+location.hash); }
 async function checkUpdate(manual){
   try{
@@ -1994,7 +1994,10 @@ function autoSearch(){
   const last=Date.parse((GH.run||{}).date||"")||0; let sent=0; try{ sent=+localStorage.getItem("im_dispatch")||0; }catch(e){}
   const hrs=(Date.now()-last)/3600000, since=(Date.now()-sent)/3600000;
   const torHour=+new Date().toLocaleString("en-CA",{timeZone:"America/Toronto",hour:"numeric",hour12:false});
-  if(last && hrs>20 && since>2 && torHour>=4) startSearch(false);
+  const torNow=new Date(new Date().toLocaleString("en-US",{timeZone:"America/Toronto"}));
+  const today4=new Date(torNow); today4.setHours(4,0,0,0);
+  const offset=Date.now()-torNow.getTime(); const cutoff=today4.getTime()+offset;
+  if(last && last<cutoff && since>2 && torHour>=4) startSearch(false);
 }
 function nextSearch(){
   const now=new Date(), c=[];
